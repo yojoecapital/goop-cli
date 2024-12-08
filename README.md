@@ -31,12 +31,17 @@ Use `initialize` or `init` to link a Google Drive folder to a local directory.
 goop init --folderId 1aBcD2EfGh3IjKl4MnOpQrSt
 ```
 
-### `push`
+### Fetch
+
+Use `fetch` to update the Google Drive cache in the metadata file. Both the push and pull commands determine what to push and pull based on this cache.
+
+### Push
+
 Upload local changes to the linked Google Drive folder. Passing `--yes` will commit the changes to Google Drive. Otherwise only the potential changes will be printed to the console.
 
-```bash
-goop push --yes
-```
+### Pull
+
+Download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
 
 ## Building
 
