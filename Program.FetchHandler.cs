@@ -13,6 +13,7 @@ namespace GoogleDrivePushCli
             var remoteFiles = DriveServiceWrapper.Instance.GetFiles(metadata.FolderId).ToDictionary(file => file.Id);
             foreach (var pair in metadata.Mappings)
             {
+                WriteInfo($"Checking if remote file '{pair.Key}' ({pair.Value.FileId}) was deleted.");
                 if (!remoteFiles.ContainsKey(pair.Value.FileId))
                 {
                     wasEdited = true;
@@ -26,6 +27,7 @@ namespace GoogleDrivePushCli
                 {
                     var timestamp = fileMetadata.Timestamp;
                     var remoteTimestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime;
+                    WriteInfo($"Checking if remote file '{file.Name}' ({file.Id}) was updated by comparing remote time '{remoteTimestamp}' to cached remote time '{timestamp}' (>).");
                     if (remoteTimestamp > timestamp)
                     {
                         wasEdited = true;

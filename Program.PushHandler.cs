@@ -16,12 +16,12 @@ namespace GoogleDrivePushCli
 
                 // Skip the metadata file
                 if (fileName == Defaults.metadataFileName) continue;
-                var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
                 if (metadata.Mappings.TryGetValue(fileName, out var fileMetadata))
                 {
-                    if (fileMetadata.Timestamp >= lastWriteTime) continue;
+                    var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
+                    if (lastWriteTime <= fileMetadata.Timestamp) continue;
 
-                    // The file was modified
+                    // The file was updated
                     wasEdited = true;
                     var message = $"Edit remote file '{fileName}'.";
                     if (confirm)
@@ -34,7 +34,7 @@ namespace GoogleDrivePushCli
                 }
                 else
                 {
-                    // The file doesn't exist
+                    // The file was created
                     wasEdited = true;
                     var message = $"Create remote file '{fileName}'.";
                     if (confirm)

@@ -16,7 +16,8 @@ namespace GoogleDrivePushCli
                 var filePath = Path.Join(workingDirectory, pair.Key);
                 if (File.Exists(filePath) && metadata.Mappings.TryGetValue(pair.Key, out var fileMetadata))
                 {
-                    if (File.GetLastWriteTimeUtc(filePath) >= pair.Value.Timestamp) continue;
+                    var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
+                    if (lastWriteTime >= pair.Value.Timestamp) continue;
 
                     // The file was updated
                     wasEdited = true;
