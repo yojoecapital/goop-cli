@@ -4,7 +4,7 @@ using System.IO;
 
 internal partial class Program
 {
-    private static readonly string metadataFileName = ".goop.json";
+    private static readonly string metadataFileName = ".goop";
 
     private static void InitializeHandler(string workingDirectory, bool verbose, string folderId)
     {

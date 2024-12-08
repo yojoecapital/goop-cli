@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 
 internal partial class Program
 {
@@ -19,6 +20,9 @@ internal partial class Program
         foreach (string filePath in filePaths)
         {
             var fileName = Path.GetFileName(filePath);
+
+            // Skip the metadata file
+            if (fileName == metadataFileName) continue;
             var lastWriteTime = File.GetLastWriteTime(filePath);
             if (metadata.mappings.TryGetValue(fileName, out var fileMetadata) && fileMetadata.timestamp < lastWriteTime)
             {
