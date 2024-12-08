@@ -1,25 +1,28 @@
 using System;
 
-internal partial class Program
+namespace GoogleDrivePushCli
 {
-    private static void WriteInfo(string message)
+    internal partial class Program
     {
-        if (!verbose) return;
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine($"[INFO] {message}");
-        Console.ResetColor();
-    }
+        public static void WriteInfo(string message)
+        {
+            if (!verbose) return;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine($"[INFO] {message}");
+            Console.ResetColor();
+        }
 
-    // Method to write error messages
-    private static void WriteError(string message)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Error.WriteLine($"[ERROR] {message}");
-        Console.ResetColor();
-    }
+        // Method to write error messages
+        public static void WriteError(string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine($"[ERROR] {message}");
+            Console.ResetColor();
+        }
 
-    private static void WriteToDo(string message)
-    {
-        Console.Error.WriteLine($"[TODO] {message}");
+        public static void WriteToDo(string message)
+        {
+            Console.Error.WriteLine($"[TODO] {message}");
+        }
     }
 }

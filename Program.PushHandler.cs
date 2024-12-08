@@ -1,79 +1,80 @@
 using System;
 using System.IO;
-using System.Security.Cryptography.X509Certificates;
 
-internal partial class Program
+namespace GoogleDrivePushCli
 {
-    private static void PushHandler(string workingDirectory, bool verbose, bool confirm)
+    internal partial class Program
     {
-        InitializeProgram(verbose);
-        var metadata = ReadMetadata(workingDirectory);
-        PushLocalFiles(metadata, workingDirectory, confirm);
-        RemoveRemoteFiles(metadata, workingDirectory, confirm);
-
-    }
-
-    private static void PushLocalFiles(Metadata metadata, string workingDirectory, bool confirm)
-    {
-        var filePaths = Directory.GetFiles(workingDirectory);
-        var wasEdited = false;
-        foreach (string filePath in filePaths)
+        private static void PushHandler(string workingDirectory, bool verbose, bool confirm)
         {
-            var fileName = Path.GetFileName(filePath);
+            InitializeProgram(verbose);
+            var metadata = ReadMetadata(workingDirectory);
+            var wasEdited = false;
 
-            // Skip the metadata file
-            if (fileName == metadataFileName) continue;
-            var lastWriteTime = File.GetLastWriteTime(filePath);
-            if (metadata.mappings.TryGetValue(fileName, out var fileMetadata) && fileMetadata.timestamp < lastWriteTime)
+            // Handle creates and updates
+            foreach (string filePath in Directory.GetFiles(workingDirectory))
             {
-                // The file was modified
-                var message = $"Edit remote file '{fileName}'.";
-                if (confirm)
+                var fileName = Path.GetFileName(filePath);
+
+                // Skip the metadata file
+                if (fileName == metadataFileName) continue;
+                var lastWriteTime = File.GetLastWriteTime(filePath);
+                if (metadata.Mappings.TryGetValue(fileName, out var fileMetadata))
                 {
-                    UpdateFileInDrive(fileMetadata.fileId, filePath);
-                    metadata.mappings[fileName].timestamp = lastWriteTime;
-                    WriteInfo(message);
+                    if (fileMetadata.Timestamp >= lastWriteTime) continue;
+
+                    // The file was modified
                     wasEdited = true;
-                }
-                else WriteToDo(message);
-            }
-            else
-            {
-                // The file doesn't exist
-                var message = $"Create remote file '{fileName}'.";
-                if (confirm)
-                {
-                    var fileId = CreateFileInDrive(metadata.folderId, filePath);
-                    metadata.mappings[fileName] = new ()
+                    var message = $"Edit remote file '{fileName}'.";
+                    if (confirm)
                     {
-                        fileId = fileId,
-                        timestamp = File.GetLastWriteTime(filePath)
-                    };
-                    WriteInfo(message);
-                    wasEdited = true;
+                        serviceWrapper.UpdateFile(fileMetadata.FileId, filePath);
+                        metadata.Mappings[fileName].Timestamp = lastWriteTime;
+                        WriteInfo(message);
+                    }
+                    else WriteToDo(message);
                 }
-                else WriteToDo(message);
-            }    
-        }
-        if (wasEdited) WriteMetadata(metadata, workingDirectory);
-    }
-
-    private static void RemoveRemoteFiles(Metadata metadata, string workingDirectory, bool confirm)
-    {
-        foreach (var file in GetFilesInDrive(metadata.folderId))
-        {
-            var filePath = Path.Join(workingDirectory, file.Name);
-            if (!File.Exists(filePath))
-            {
-                // The file was deleted
-                var message = $"Delete remote file '{file.Name}'";
-                if (confirm)
+                else
                 {
-                    MoveFileToTrashInDrive(file.Id);
-                    WriteInfo(message);
-                }
-                else WriteToDo(message);
+                    // The file doesn't exist
+                    wasEdited = true;
+                    var message = $"Create remote file '{fileName}'.";
+                    if (confirm)
+                    {
+                        var fileId = serviceWrapper.CreateFile(metadata.FolderId, filePath);
+                        metadata.Mappings[fileName] = new ()
+                        {
+                            FileId = fileId,
+                            Timestamp = File.GetLastWriteTime(filePath)
+                        };
+                        WriteInfo(message);
+                    }
+                    else WriteToDo(message);
+                }    
             }
+
+            // Update metadata
+            if (confirm && wasEdited) WriteMetadata(metadata, workingDirectory);
+
+            // Handle deletes
+            foreach (var file in serviceWrapper.GetFiles(metadata.FolderId))
+            {
+                var filePath = Path.Join(workingDirectory, file.Name);
+                if (!File.Exists(filePath))
+                {
+                    // The file was deleted
+                    wasEdited = true;
+                    var message = $"Delete remote file '{file.Name}'";
+                    if (confirm)
+                    {
+                        serviceWrapper.MoveFileToTrash(file.Id);
+                        WriteInfo(message);
+                    }
+                    else WriteToDo(message);
+                }
+            }
+            if (wasEdited) Console.WriteLine("Push complete.");
+            else Console.WriteLine("Nothing to push.");
         }
     }
 }

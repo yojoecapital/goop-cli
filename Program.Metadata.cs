@@ -1,33 +1,36 @@
-using System;
 using System.IO;
 using System.Text.Json;
+using GoogleDrivePushCli.Meta;
 
-internal partial class Program
+namespace GoogleDrivePushCli
 {
-    private static Metadata ReadMetadata(string workingDirectory)
+    internal partial class Program
     {
-        var path = Path.Join(workingDirectory, metadataFileName);
-        if (!File.Exists(path)) throw new FileNotFoundException($"A metadata file could not be loaded at '{path}'.");
-        try
+        private static Metadata ReadMetadata(string workingDirectory)
         {
-            return JsonSerializer.Deserialize(File.ReadAllText(path), JsonContext.Default.Metadata);
+            var path = Path.Join(workingDirectory, metadataFileName);
+            if (!File.Exists(path)) throw new FileNotFoundException($"A metadata file could not be loaded at '{path}'.");
+            try
+            {
+                return JsonSerializer.Deserialize(File.ReadAllText(path), MetadataJsonContext.Default.Metadata);
+            }
+            catch
+            {
+                throw new JsonException($"The metadata file at '{path}' could not be parsed.");
+            }
         }
-        catch
-        {
-            throw new JsonException($"The metadata file at '{path}' could not be parsed.");
-        }
-    }
 
-    private static void WriteMetadata(Metadata metadata, string workingDirectory)
-    {
-        var path = Path.Join(workingDirectory, metadataFileName);
-        try
+        private static void WriteMetadata(Metadata metadata, string workingDirectory)
         {
-            File.WriteAllText(path, JsonSerializer.Serialize(metadata, JsonContext.Default.Metadata));
-        }
-        catch
-        {
-            throw new JsonException($"Could not write a metadata file at '{path}'.");
+            var path = Path.Join(workingDirectory, metadataFileName);
+            try
+            {
+                File.WriteAllText(path, JsonSerializer.Serialize(metadata, MetadataJsonContext.Default.Metadata));
+            }
+            catch
+            {
+                throw new JsonException($"Could not write a metadata file at '{path}'.");
+            }
         }
     }
 }
