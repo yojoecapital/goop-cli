@@ -15,7 +15,7 @@ namespace GoogleDrivePushCli
             Directory.CreateDirectory(workingDirectory);
             if (Directory.GetFiles(workingDirectory).Length > 0) throw new InvalidOperationException($"The working directory '{workingDirectory}' is not empty.");
 
-            var folderName = serviceWrapper.GetFolderName(folderId);
+            var folderName = DriveServiceWrapper.Instance.GetFolderName(folderId);
             WriteInfo($"Initializing sync for folder '{folderName}'.");
 
             // Traverse Google Drive folder, copy files, and create metadata file 
@@ -33,14 +33,14 @@ namespace GoogleDrivePushCli
         private static Dictionary<string, FileMetadata> CopyDriveFolderToLocal(string folderId, string workingDirectory)
         {
             var mappings = new Dictionary<string, FileMetadata>();
-            foreach (var file in serviceWrapper.GetFiles(folderId))
+            foreach (var file in DriveServiceWrapper.Instance.GetFiles(folderId))
             {
-                var filePath = serviceWrapper.DownloadFile(workingDirectory, file);
+                var filePath = DriveServiceWrapper.Instance.DownloadFile(workingDirectory, file);
 
                 // Add metadata
                 mappings[file.Name] = new()
                 {
-                    Timestamp = File.GetLastWriteTime(filePath),
+                    Timestamp = File.GetLastWriteTimeUtc(filePath),
                     FileId = file.Id
                 };
             }

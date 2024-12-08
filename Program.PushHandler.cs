@@ -10,15 +10,13 @@ namespace GoogleDrivePushCli
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory);
             var wasEdited = false;
-
-            // Handle creates and updates
             foreach (string filePath in Directory.GetFiles(workingDirectory))
             {
                 var fileName = Path.GetFileName(filePath);
 
                 // Skip the metadata file
-                if (fileName == metadataFileName) continue;
-                var lastWriteTime = File.GetLastWriteTime(filePath);
+                if (fileName == Defaults.metadataFileName) continue;
+                var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
                 if (metadata.Mappings.TryGetValue(fileName, out var fileMetadata))
                 {
                     if (fileMetadata.Timestamp >= lastWriteTime) continue;
@@ -28,8 +26,8 @@ namespace GoogleDrivePushCli
                     var message = $"Edit remote file '{fileName}'.";
                     if (confirm)
                     {
-                        serviceWrapper.UpdateFile(fileMetadata.FileId, filePath);
-                        metadata.Mappings[fileName].Timestamp = lastWriteTime;
+                        var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
+                        metadata.Mappings[fileName].Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime;
                         WriteInfo(message);
                     }
                     else WriteToDo(message);
@@ -41,40 +39,42 @@ namespace GoogleDrivePushCli
                     var message = $"Create remote file '{fileName}'.";
                     if (confirm)
                     {
-                        var fileId = serviceWrapper.CreateFile(metadata.FolderId, filePath);
+                        var file = DriveServiceWrapper.Instance.CreateFile(metadata.FolderId, filePath);
                         metadata.Mappings[fileName] = new ()
                         {
-                            FileId = fileId,
-                            Timestamp = File.GetLastWriteTime(filePath)
+                            FileId = file.Id,
+                            Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime
                         };
                         WriteInfo(message);
                     }
                     else WriteToDo(message);
                 }    
             }
-
-            // Update metadata
-            if (confirm && wasEdited) WriteMetadata(metadata, workingDirectory);
-
-            // Handle deletes
-            foreach (var file in serviceWrapper.GetFiles(metadata.FolderId))
+            foreach (var pair in metadata.Mappings)
             {
-                var filePath = Path.Join(workingDirectory, file.Name);
+                var filePath = Path.Join(workingDirectory, pair.Key);
                 if (!File.Exists(filePath))
                 {
                     // The file was deleted
                     wasEdited = true;
-                    var message = $"Delete remote file '{file.Name}'";
+                    var message = $"Delete remote file '{pair.Key}'";
                     if (confirm)
                     {
-                        serviceWrapper.MoveFileToTrash(file.Id);
+                        DriveServiceWrapper.Instance.MoveFileToTrash(pair.Value.FileId);
+                        metadata.Mappings.Remove(pair.Key);
                         WriteInfo(message);
                     }
                     else WriteToDo(message);
                 }
             }
-            if (wasEdited) Console.WriteLine("Push complete.");
-            else Console.WriteLine("Nothing to push.");
+
+            // Update metadata
+            if (confirm && wasEdited) 
+            {
+                WriteMetadata(metadata, workingDirectory);
+                Console.WriteLine("Push complete");
+            }
+            if (!wasEdited) Console.WriteLine("Nothing to push.");
         }
     }
 }

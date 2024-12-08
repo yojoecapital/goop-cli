@@ -16,9 +16,20 @@ namespace GoogleDrivePushCli
        
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
+        private static DriveServiceWrapper instance;
 
-        public DriveServiceWrapper(string applicationName, string credentialsPath, string tokensPath)
+        public static DriveServiceWrapper Instance
         {
+            get
+            {
+                instance ??= new DriveServiceWrapper();
+                return instance;
+            }
+        }
+
+        private DriveServiceWrapper()
+        {
+            var credentialsPath = Path.Join(Defaults.configurationPath, Defaults.credentialsFileName);
             if (!File.Exists(credentialsPath))
             {
                 throw new GoogleApiException($"A credentials JSON could not be found at '{credentialsPath}'.");
@@ -26,6 +37,7 @@ namespace GoogleDrivePushCli
             UserCredential credential;
 
             // Get permission and make token
+            var tokensPath = Path.Join(Defaults.configurationPath, Defaults.tokensDirectory);
             using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))
             {
                 credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
@@ -41,7 +53,7 @@ namespace GoogleDrivePushCli
             service = new DriveService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = credential,
-                ApplicationName = applicationName,
+                ApplicationName = Defaults.applicationName,
             });
 
             // Test connection
@@ -54,18 +66,23 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public void UpdateFile(string fileId, string localFilePath)
+        public Google.Apis.Drive.v3.Data.File UpdateFile(string fileId, string localFilePath)
         {
-            var body = service.Files.Get(fileId).Execute();
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+            var body = service.Files.Get(fileId).Execute();
+            body.Id = null;
+            body.Kind = null;
+            body.Parents = null;
             var request = service.Files.Update(body, fileId, fileStream, "application/octet-stream");
+            request.Fields = "id, name, modifiedTime";
             request.ProgressChanged += progress =>
             {
                 if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
                 else if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId} has been updated successfully.");
             };
-            var file = request.Upload();
-            if (file.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
+            var progress = request.Upload();
+            if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
+            return request.ResponseBody;
         }
 
         public void MoveFileToTrash(string fileId)
@@ -79,7 +96,7 @@ namespace GoogleDrivePushCli
             Program.WriteInfo($"File ({fileId}) has been moved to trash.");
         }
 
-        public string CreateFile(string folderId, string localFilePath)
+        public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath)
         {
             var body = new Google.Apis.Drive.v3.Data.File()
             {
@@ -88,14 +105,14 @@ namespace GoogleDrivePushCli
             };
             using var stream = new FileStream(localFilePath, FileMode.Open);
             var request = service.Files.Create(body, stream, "application/octet-stream");
-            request.Fields = "id";
+            request.Fields = "id, name, modifiedTime";
             request.ProgressChanged += progress =>
             {
                 if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
-            var file = request.Upload();
-            if (file.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
-            return request.ResponseBody.Id;
+            var progress = request.Upload();
+            if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
+            return request.ResponseBody;
         }
 
         public IEnumerable<Google.Apis.Drive.v3.Data.File> GetFiles(string folderId)
@@ -118,29 +135,34 @@ namespace GoogleDrivePushCli
         {
             var path = Path.Combine(workingDirectory, file.Name);
             using var stream = new FileStream(path, FileMode.Create);
-            var getRequest = service.Files.Get(file.Id);
-            getRequest.MediaDownloader.ProgressChanged += progress =>
+            var request = service.Files.Get(file.Id);
+            request.MediaDownloader.ProgressChanged += progress =>
             {
                 if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Program.WriteInfo($"Downloaded '{file.Name}'.");
             };
-            getRequest.Download(stream);
+            request.Download(stream);
             return path;
+        }
+
+        public Google.Apis.Drive.v3.Data.File GetFile(string fileId)
+        {
+            // Ensure folder exists in Google Drive
+            var request = service.Files.Get(fileId);
+            request.Fields = "id, name, mimeType, modifiedTime";
+            try
+            {
+                return request.Execute();
+            }
+            catch
+            {
+                throw new InvalidOperationException($"Remote item ('{fileId}') does not exist.");
+            }
         }
 
         public string GetFolderName(string folderId)
         {
             // Ensure folder exists in Google Drive
-            var folderRequest = service.Files.Get(folderId);
-            folderRequest.Fields = "id, name, mimeType";
-            Google.Apis.Drive.v3.Data.File folder;
-            try
-            {
-                folder = folderRequest.Execute();
-            }
-            catch
-            {
-                throw new InvalidOperationException($"Folder with ID '{folderId}' does not exist.");
-            }
+            var folder = GetFile(folderId);
 
             // Ensure the retrieved item is a file
             if (folder.MimeType != "application/vnd.google-apps.folder") throw new InvalidOperationException($"The provided ID '{folderId}' is not a folder.");

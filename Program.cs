@@ -10,27 +10,11 @@ namespace GoogleDrivePushCli
 {
     internal static partial class Program
     {
-        // Program defaults
-        private static readonly string applicationName = "Google Drive Push CLI";
-        private static readonly string configurationPath = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "goop");
-        private static readonly string credentialsFileName = "credentials.json";
-        private static readonly string metadataFileName = ".goop";
-        private static readonly string tokensDirectory = "tokens";
-
-        // Program constants
         public static bool verbose;
-        private static DriveServiceWrapper serviceWrapper;
         private static void InitializeProgram(bool verbose)
         {
             Program.verbose = verbose;
-
-            // Ensure configuration directory exists
-            Directory.CreateDirectory(configurationPath);
-            serviceWrapper = new DriveServiceWrapper(
-                applicationName,
-                Path.Join(configurationPath, credentialsFileName),
-                Path.Join(configurationPath, tokensDirectory)
-            );
+            Directory.CreateDirectory(Defaults.configurationPath);
         }
 
 
@@ -69,11 +53,24 @@ namespace GoogleDrivePushCli
             };
             pushCommand.SetHandler(PushHandler, workingDirectoryOption, verboseOption, confirmOption);
 
+            // Pull command
+            var pullCommand = new Command("pull", "Pulls remote changes from Google Drive.")
+            {
+                confirmOption
+            };
+            pullCommand.SetHandler(PullHandler, workingDirectoryOption, verboseOption, confirmOption);
+
+            // Pull command
+            var fetchCommand = new Command("fetch", $"Updates the Google Drive cached in '{Defaults.metadataFileName}'.");
+            fetchCommand.SetHandler(FetchHandler, workingDirectoryOption, verboseOption);
+
             // Application root
-            var rootCommand = new RootCommand($"The {applicationName} is a simple tool for syncing files between a local directory and Google Drive.")
+            var rootCommand = new RootCommand($"The {Defaults.applicationName} is a simple tool for syncing files between a local directory and Google Drive.")
             {
                 initializeCommand,
-                pushCommand
+                pushCommand,
+                pullCommand,
+                fetchCommand
             };
             rootCommand.AddGlobalOption(workingDirectoryOption);
             rootCommand.AddGlobalOption(verboseOption);
