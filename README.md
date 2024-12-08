@@ -21,8 +21,6 @@ This program requires the **Google Drive API** to be enabled and to have the `cr
 
 ## Usage
 
-### Help Command
-
 Run `goop --help` for detailed usage information.
 
 ### Initialize
