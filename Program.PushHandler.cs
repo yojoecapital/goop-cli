@@ -57,7 +57,7 @@ namespace GoogleDrivePushCli
                 {
                     // The file was deleted
                     wasEdited = true;
-                    var message = $"Delete remote file '{pair.Key}'";
+                    var message = $"Delete remote file '{pair.Key}'.";
                     if (confirm)
                     {
                         DriveServiceWrapper.Instance.MoveFileToTrash(pair.Value.FileId);
@@ -72,7 +72,7 @@ namespace GoogleDrivePushCli
             if (confirm && wasEdited) 
             {
                 WriteMetadata(metadata, workingDirectory);
-                Console.WriteLine("Push complete");
+                Console.WriteLine("Push complete.");
             }
             if (!wasEdited) Console.WriteLine("Nothing to push.");
         }

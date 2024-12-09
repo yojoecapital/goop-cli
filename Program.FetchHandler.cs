@@ -13,12 +13,12 @@ namespace GoogleDrivePushCli
             var remoteFiles = DriveServiceWrapper.Instance.GetFiles(metadata.FolderId).ToDictionary(file => file.Id);
             foreach (var pair in metadata.Mappings)
             {
-                WriteInfo($"Checking if remote file '{pair.Key}' ({pair.Value.FileId}) was deleted.");
+                WriteInfo($"Checking if remote file '{pair.Key}' was deleted.");
                 if (!remoteFiles.ContainsKey(pair.Value.FileId))
                 {
                     wasEdited = true;
                     metadata.Mappings.Remove(pair.Key);
-                    WriteInfo($"Remote file {pair.Key} ({pair.Value.FileId}) was deleted.");
+                    WriteInfo($"Remote file {pair.Key} was deleted.");
                 }
             }
             foreach (var file in remoteFiles.Values)
@@ -27,12 +27,12 @@ namespace GoogleDrivePushCli
                 {
                     var timestamp = fileMetadata.Timestamp;
                     var remoteTimestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime;
-                    WriteInfo($"Checking if remote file '{file.Name}' ({file.Id}) was updated by comparing remote time '{remoteTimestamp}' to cached remote time '{timestamp}' (>).");
+                    WriteInfo($"Checking if remote file '{file.Name}' was updated by comparing remote time '{remoteTimestamp}' to cached remote time '{timestamp}' (>).");
                     if (remoteTimestamp > timestamp)
                     {
                         wasEdited = true;
                         fileMetadata.Timestamp = remoteTimestamp;
-                        WriteInfo($"Remote file {file.Name} ({file.Id}) was updated from {timestamp} to {remoteTimestamp}.");
+                        WriteInfo($"Remote file {file.Name} was updated from {timestamp} to {remoteTimestamp}.");
                     }
                 }
                 else
@@ -43,7 +43,7 @@ namespace GoogleDrivePushCli
                         Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime,
                         FileId = file.Id
                     };
-                    WriteInfo($"Remote file {file.Name} ({file.Id}) was created.");
+                    WriteInfo($"Remote file {file.Name} was created.");
                 }
             }
 

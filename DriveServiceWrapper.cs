@@ -127,7 +127,7 @@ namespace GoogleDrivePushCli
             }
             catch
             {
-                throw new GoogleApiException($"Failed to fetch files for folder ID '{folderId}'");
+                throw new GoogleApiException($"Failed to fetch files for folder ID '{folderId}'.");
             }
         }
 

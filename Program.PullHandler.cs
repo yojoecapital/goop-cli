@@ -21,7 +21,7 @@ namespace GoogleDrivePushCli
 
                     // The file was updated
                     wasEdited = true;
-                    var message = $"Update local file '{pair.Key}'";
+                    var message = $"Update local file '{pair.Key}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetFile(pair.Value.FileId);
@@ -39,7 +39,7 @@ namespace GoogleDrivePushCli
                 {
                     // The file was created
                     wasEdited = true;
-                    var message = $"Create local file '{pair.Key}'";
+                    var message = $"Create local file '{pair.Key}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetFile(pair.Value.FileId);
@@ -61,7 +61,7 @@ namespace GoogleDrivePushCli
 
                 // The file was deleted
                 wasEdited = true;
-                var message = $"Delete local file '{fileName}'";
+                var message = $"Delete local file '{fileName}'.";
                 if (confirm)
                 {
                     File.Delete(filePath);
