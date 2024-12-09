@@ -78,7 +78,6 @@ namespace GoogleDrivePushCli
             request.ProgressChanged += progress =>
             {
                 if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
-                else if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId} has been updated successfully.");
             };
             var progress = request.Upload();
             if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
