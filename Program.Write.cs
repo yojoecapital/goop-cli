@@ -22,7 +22,7 @@ namespace GoogleDrivePushCli
 
         public static void WriteToDo(string message)
         {
-            Console.Error.WriteLine($"[TODO] {message}");
+            Console.WriteLine($"[TODO] {message}");
         }
     }
 }
