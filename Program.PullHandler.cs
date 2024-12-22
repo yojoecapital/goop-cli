@@ -31,9 +31,9 @@ namespace GoogleDrivePushCli
                             Timestamp = File.GetLastWriteTimeUtc(filePath),
                             FileId = file.Id
                         };
-                        WriteInfo(message);
+                        Logger.Info(message);
                     }
-                    else WriteToDo(message);
+                    else Logger.ToDo(message);
                 }
                 else
                 {
@@ -49,9 +49,9 @@ namespace GoogleDrivePushCli
                             Timestamp = File.GetLastWriteTimeUtc(filePath),
                             FileId = file.Id
                         };
-                        WriteInfo(message);
+                        Logger.Info(message);
                     }
-                    else WriteToDo(message);
+                    else Logger.ToDo(message);
                 }
             }
             foreach (string filePath in Directory.GetFiles(workingDirectory))
@@ -65,18 +65,18 @@ namespace GoogleDrivePushCli
                 if (confirm)
                 {
                     File.Delete(filePath);
-                    WriteInfo(message);
+                    Logger.Info(message);
                 }
-                else WriteToDo(message);
+                else Logger.ToDo(message);
             }
 
             // Update metadata
-            if (confirm && wasEdited) 
+            if (confirm && wasEdited)
             {
                 WriteMetadata(metadata, workingDirectory);
-                Console.WriteLine("Pull complete");
+                Logger.Message("Pull complete");
             }
-            if (!wasEdited) Console.WriteLine("Nothing to pull.");
+            if (!wasEdited) Logger.Message("Nothing to pull.");
         }
     }
 }

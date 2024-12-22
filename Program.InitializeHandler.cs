@@ -16,7 +16,7 @@ namespace GoogleDrivePushCli
             if (Directory.GetFiles(workingDirectory).Length > 0) throw new InvalidOperationException($"The working directory '{workingDirectory}' is not empty.");
 
             var folderName = DriveServiceWrapper.Instance.GetFolderName(folderId);
-            WriteInfo($"Initializing sync for folder '{folderName}'.");
+            Logger.Info($"Initializing sync for folder '{folderName}'.");
 
             // Traverse Google Drive folder, copy files, and create metadata file 
             var metadata = new Metadata
@@ -27,7 +27,7 @@ namespace GoogleDrivePushCli
 
             // Write metadata
             WriteMetadata(metadata, workingDirectory);
-            Console.WriteLine("Initialization complete.");
+            Logger.Message("Initialization complete.");
         }
 
         private static Dictionary<string, FileMetadata> CopyDriveFolderToLocal(string folderId, string workingDirectory)

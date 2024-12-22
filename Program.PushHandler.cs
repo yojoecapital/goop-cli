@@ -28,9 +28,9 @@ namespace GoogleDrivePushCli
                     {
                         var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
                         metadata.Mappings[fileName].Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime;
-                        WriteInfo(message);
+                        Logger.Info(message);
                     }
-                    else WriteToDo(message);
+                    else Logger.ToDo(message);
                 }
                 else
                 {
@@ -40,15 +40,15 @@ namespace GoogleDrivePushCli
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.CreateFile(metadata.FolderId, filePath);
-                        metadata.Mappings[fileName] = new ()
+                        metadata.Mappings[fileName] = new()
                         {
                             FileId = file.Id,
                             Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime
                         };
-                        WriteInfo(message);
+                        Logger.Info(message);
                     }
-                    else WriteToDo(message);
-                }    
+                    else Logger.ToDo(message);
+                }
             }
             foreach (var pair in metadata.Mappings)
             {
@@ -62,19 +62,19 @@ namespace GoogleDrivePushCli
                     {
                         DriveServiceWrapper.Instance.MoveFileToTrash(pair.Value.FileId);
                         metadata.Mappings.Remove(pair.Key);
-                        WriteInfo(message);
+                        Logger.Info(message);
                     }
-                    else WriteToDo(message);
+                    else Logger.ToDo(message);
                 }
             }
 
             // Update metadata
-            if (confirm && wasEdited) 
+            if (confirm && wasEdited)
             {
                 WriteMetadata(metadata, workingDirectory);
-                Console.WriteLine("Push complete.");
+                Logger.Message("Push complete.");
             }
-            if (!wasEdited) Console.WriteLine("Nothing to push.");
+            if (!wasEdited) Logger.Message("Nothing to push.");
         }
     }
 }

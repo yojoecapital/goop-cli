@@ -2,9 +2,12 @@ using System;
 
 namespace GoogleDrivePushCli
 {
-    internal partial class Program
+    internal static class Logger
     {
-        public static void WriteInfo(string message)
+        // The verbose flag will control whether INFO level messages are logged
+        public static bool verbose;
+
+        public static void Info(string message)
         {
             if (!verbose) return;
             Console.ForegroundColor = ConsoleColor.Blue;
@@ -12,17 +15,14 @@ namespace GoogleDrivePushCli
             Console.ResetColor();
         }
 
-        // Method to write error messages
-        public static void WriteError(string message)
+        public static void Error(string message)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine($"[ERROR] {message}");
             Console.ResetColor();
         }
 
-        public static void WriteToDo(string message)
-        {
-            Console.WriteLine($"[TODO] {message}");
-        }
+        public static void ToDo(string message) => Console.WriteLine($"[TODO] {message}");
+        public static void Message(string message) => Console.WriteLine(message);
     }
 }

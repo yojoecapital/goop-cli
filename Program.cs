@@ -10,10 +10,9 @@ namespace GoogleDrivePushCli
 {
     internal static partial class Program
     {
-        public static bool verbose;
         private static void InitializeProgram(bool verbose)
         {
-            Program.verbose = verbose;
+            Logger.verbose = verbose;
             Directory.CreateDirectory(Defaults.configurationPath);
         }
 
@@ -24,8 +23,8 @@ namespace GoogleDrivePushCli
             // Top level options
             var workingDirectoryOption = new Option<string>
             (
-                ["--directory", "-wd"], 
-                GetEnvironmentCurrentDirectory, 
+                ["--directory", "-wd"],
+                GetEnvironmentCurrentDirectory,
                 "The working directory (default is the current directory)."
             )
             {
@@ -39,7 +38,7 @@ namespace GoogleDrivePushCli
                 IsRequired = true
             };
             var initializeCommand = new Command("initialize", "Initializes the Google Drive synchronization.")
-            {   
+            {
                 folderIdOption
             };
             initializeCommand.AddAlias("init");
@@ -74,7 +73,7 @@ namespace GoogleDrivePushCli
             };
             rootCommand.AddGlobalOption(workingDirectoryOption);
             rootCommand.AddGlobalOption(verboseOption);
-            
+
             // Run the application
             var cli = new CommandLineBuilder(rootCommand)
                 .UseHelp()
@@ -88,7 +87,7 @@ namespace GoogleDrivePushCli
 
         private static void ExceptionHandler(Exception ex, InvocationContext context)
         {
-            WriteError(ex.Message);
+            Logger.Error(ex.Message);
             context.ExitCode = 1;
         }
     }

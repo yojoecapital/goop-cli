@@ -13,7 +13,7 @@ namespace GoogleDrivePushCli
 {
     internal class DriveServiceWrapper
     {
-       
+
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
         private static DriveServiceWrapper instance;
@@ -57,12 +57,12 @@ namespace GoogleDrivePushCli
             });
 
             // Test connection
-            if (Program.verbose)
+            if (Logger.verbose)
             {
                 var request = service.About.Get();
                 request.Fields = "user";
                 var about = request.Execute();
-                Program.WriteInfo($"Established drive service for {about.User.EmailAddress}.");
+                Logger.Info($"Established drive service for {about.User.EmailAddress}.");
             }
         }
 
@@ -80,7 +80,7 @@ namespace GoogleDrivePushCli
                 if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
+            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
             return request.ResponseBody;
         }
 
@@ -92,7 +92,7 @@ namespace GoogleDrivePushCli
             };
             var request = service.Files.Update(body, fileId);
             request.Execute();
-            Program.WriteInfo($"File ({fileId}) has been moved to trash.");
+            Logger.Info($"File ({fileId}) has been moved to trash.");
         }
 
         public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath)
@@ -100,7 +100,7 @@ namespace GoogleDrivePushCli
             var body = new Google.Apis.Drive.v3.Data.File()
             {
                 Name = Path.GetFileName(localFilePath),
-                Parents = [folderId] 
+                Parents = [folderId]
             };
             using var stream = new FileStream(localFilePath, FileMode.Open);
             var request = service.Files.Create(body, stream, "application/octet-stream");
@@ -110,7 +110,7 @@ namespace GoogleDrivePushCli
                 if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Program.WriteInfo($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
+            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
             return request.ResponseBody;
         }
 
@@ -137,7 +137,7 @@ namespace GoogleDrivePushCli
             var request = service.Files.Get(file.Id);
             request.MediaDownloader.ProgressChanged += progress =>
             {
-                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Program.WriteInfo($"Downloaded '{file.Name}'.");
+                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"Downloaded '{file.Name}'.");
             };
             request.Download(stream);
             return path;
