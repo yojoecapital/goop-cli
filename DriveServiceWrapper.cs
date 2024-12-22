@@ -32,7 +32,7 @@ namespace GoogleDrivePushCli
             var credentialsPath = Path.Join(Defaults.configurationPath, Defaults.credentialsFileName);
             if (!File.Exists(credentialsPath))
             {
-                throw new GoogleApiException($"A credentials JSON could not be found at '{credentialsPath}'.");
+                throw new Exception($"A credentials JSON could not be found at '{credentialsPath}'.");
             }
             UserCredential credential;
 
@@ -77,7 +77,7 @@ namespace GoogleDrivePushCli
             request.Fields = "id, name, modifiedTime";
             request.ProgressChanged += progress =>
             {
-                if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
+                if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
             if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
@@ -107,7 +107,7 @@ namespace GoogleDrivePushCli
             request.Fields = "id, name, modifiedTime";
             request.ProgressChanged += progress =>
             {
-                if (progress.Status == UploadStatus.Failed) throw new GoogleApiException($"Failed to upload the file. Status: {progress.Exception.Message}");
+                if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
             if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
@@ -126,7 +126,7 @@ namespace GoogleDrivePushCli
             }
             catch
             {
-                throw new GoogleApiException($"Failed to fetch files for folder ID '{folderId}'.");
+                throw new Exception($"Failed to fetch files for folder ID '{folderId}'.");
             }
         }
 

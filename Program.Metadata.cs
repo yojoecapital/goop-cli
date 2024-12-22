@@ -16,7 +16,7 @@ namespace GoogleDrivePushCli
             }
             catch
             {
-                throw new JsonException($"The metadata file at '{path}' could not be parsed.");
+                throw new Exception($"The metadata file at '{path}' could not be parsed.");
             }
         }
 
@@ -29,7 +29,7 @@ namespace GoogleDrivePushCli
             }
             catch
             {
-                throw new JsonException($"Could not write a metadata file at '{path}'.");
+                throw new Exception($"Could not write a metadata file at '{path}'.");
             }
         }
     }
