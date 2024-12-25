@@ -9,7 +9,7 @@ namespace GoogleDrivePushCli
         private static void PushHandler(string workingDirectory, bool verbose, bool confirm)
         {
             InitializeProgram(verbose);
-            var metadata = ReadMetadata(workingDirectory);
+            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
             var wasEdited = Push(workingDirectory, metadata.Structure, confirm, metadata.Depth);
 
             // Update metadata
@@ -97,7 +97,7 @@ namespace GoogleDrivePushCli
             {
                 foreach (string folderPath in Directory.GetDirectories(directory))
                 {
-                    var folderName = Path.GetDirectoryName(folderPath);
+                    var folderName = Path.GetFileName(folderPath);
                     if (folderMetadata.Ignore.Contains(folderName))
                     {
                         Logger.Info($"Skipping local folder '{folderName}'.");

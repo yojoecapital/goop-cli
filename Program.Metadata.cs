@@ -7,9 +7,9 @@ namespace GoogleDrivePushCli
 {
     internal partial class Program
     {
-        private static Metadata ReadMetadata(string workingDirectory)
+        private static Metadata ReadMetadata(string workingDirectory, out string path)
         {
-            var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
+            path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
             try
             {
                 return JsonSerializer.Deserialize(File.ReadAllText(path), MetadataJsonContext.Default.Metadata);
@@ -22,7 +22,7 @@ namespace GoogleDrivePushCli
 
         private static void WriteMetadata(Metadata metadata, string workingDirectory)
         {
-            var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
+            var path = Path.Join(workingDirectory, Defaults.metadataFileName);
             try
             {
                 File.WriteAllText(path, JsonSerializer.Serialize(metadata, MetadataJsonContext.Default.Metadata));

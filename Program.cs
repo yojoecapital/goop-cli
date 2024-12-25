@@ -43,7 +43,8 @@ namespace GoogleDrivePushCli
             };
             var initializeCommand = new Command("initialize", "Initializes the Google Drive synchronization.")
             {
-                folderIdOption
+                folderIdOption,
+                depthOption
             };
             initializeCommand.AddAlias("init");
             initializeCommand.SetHandler(InitializeHandler, workingDirectoryOption, verboseOption, folderIdOption, depthOption);
@@ -63,9 +64,36 @@ namespace GoogleDrivePushCli
             };
             pullCommand.SetHandler(PullHandler, workingDirectoryOption, verboseOption, confirmOption);
 
-            // Pull command
+            // Fetch command
             var fetchCommand = new Command("fetch", $"Updates the Google Drive cached in '{Defaults.metadataFileName}'.");
             fetchCommand.SetHandler(FetchHandler, workingDirectoryOption, verboseOption);
+
+            // Info command
+            var infoCommand = new Command("info", "Outputs information about synced folder.");
+            infoCommand.SetHandler(InfoHandler, workingDirectoryOption, verboseOption);
+
+            // Ignore command
+            var ignoreCommand = new Command("ingore", "Ignores the file specified on the path.");
+            var pathArgument = new Argument<string>("path", "Path of the file.")
+            {
+                Arity = ArgumentArity.ExactlyOne
+            };
+            ignoreCommand.AddArgument(pathArgument);
+            ignoreCommand.SetHandler(IgnoreHandler, workingDirectoryOption, verboseOption, pathArgument);
+
+            // Track command
+            var trackCommand = new Command("track", "Un-ignores the file specified on the path.");
+            trackCommand.AddArgument(pathArgument);
+            trackCommand.SetHandler(TrackHandler, workingDirectoryOption, verboseOption, pathArgument);
+
+            // Depth command
+            var depthCommand = new Command("depth", "Updates the max depth the sync folder uses.");
+            var depthArgument = new Argument<int>("depth", "The depth value.")
+            {
+                Arity = ArgumentArity.ExactlyOne
+            };
+            depthCommand.AddArgument(depthArgument);
+            depthCommand.SetHandler(DepthHandler, workingDirectoryOption, verboseOption, depthArgument);
 
             // Application root
             var rootCommand = new RootCommand($"The {Defaults.applicationName} is a simple tool for syncing files between a local directory and Google Drive.")

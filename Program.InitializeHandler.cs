@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using GoogleDrivePushCli.Meta;
@@ -9,6 +10,7 @@ namespace GoogleDrivePushCli
         private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int maxDepth)
         {
             InitializeProgram(verbose);
+            if (maxDepth <= 0) throw new Exception("Depth must be greater than 0");
 
             // Ensure working directory exists and is empty
             Directory.CreateDirectory(workingDirectory);
