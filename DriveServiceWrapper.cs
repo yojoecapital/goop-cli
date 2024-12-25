@@ -104,6 +104,28 @@ namespace GoogleDrivePushCli
             return request.ResponseBody;
         }
 
+        public Google.Apis.Drive.v3.Data.File CreateFolder(string parentFolderId, string folderName)
+        {
+            try
+            {
+                var body = new Google.Apis.Drive.v3.Data.File()
+                {
+                    Name = folderName,
+                    MimeType = folderMimeType,
+                    Parents = [parentFolderId]
+                };
+                var request = service.Files.Create(body);
+                request.Fields = "id, name";
+                var createdFolder = request.Execute();
+                Logger.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.");
+                return createdFolder;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to create folder '{folderName}'. Error: {ex.Message}");
+            }
+        }
+
         public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file)
         {
             var path = Path.Combine(workingDirectory, file.Name);
@@ -117,15 +139,15 @@ namespace GoogleDrivePushCli
             return path;
         }
 
-        public void MoveFileToTrash(string fileId)
+        public void MoveItemToTrash(string id)
         {
             var body = new Google.Apis.Drive.v3.Data.File
             {
                 Trashed = true
             };
-            var request = service.Files.Update(body, fileId);
+            var request = service.Files.Update(body, id);
             request.Execute();
-            Logger.Info($"File ({fileId}) has been trashed successfully.");
+            Logger.Info($"Item ({id}) has been trashed successfully.");
         }
 
         public IEnumerable<Google.Apis.Drive.v3.Data.File> GetItems(string folderId, out Google.Apis.Drive.v3.Data.File folder)

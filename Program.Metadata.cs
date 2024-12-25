@@ -9,8 +9,7 @@ namespace GoogleDrivePushCli
     {
         private static Metadata ReadMetadata(string workingDirectory)
         {
-            var path = Path.Join(workingDirectory, Defaults.metadataFileName);
-            if (!File.Exists(path)) throw new FileNotFoundException($"A metadata file could not be loaded at '{path}'.");
+            var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
             try
             {
                 return JsonSerializer.Deserialize(File.ReadAllText(path), MetadataJsonContext.Default.Metadata);
@@ -23,7 +22,7 @@ namespace GoogleDrivePushCli
 
         private static void WriteMetadata(Metadata metadata, string workingDirectory)
         {
-            var path = Path.Join(workingDirectory, Defaults.metadataFileName);
+            var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
             try
             {
                 File.WriteAllText(path, JsonSerializer.Serialize(metadata, MetadataJsonContext.Default.Metadata));
@@ -33,5 +32,21 @@ namespace GoogleDrivePushCli
                 throw new Exception($"Could not write a metadata file at '{path}'.");
             }
         }
+
+        public static string FindFileInParentDirectories(string path, string fileName)
+        {
+            int depth = 0;
+            var current = new DirectoryInfo(path);
+            while (current != null)
+            {
+                depth++;
+                var filePath = Path.Combine(current.FullName, fileName);
+
+                if (File.Exists(filePath)) return filePath;
+                current = current.Parent;
+            }
+            throw new FileNotFoundException($"A metadata file could not be loaded from '{path}'.");
+        }
+
     }
 }

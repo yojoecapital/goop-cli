@@ -37,12 +37,16 @@ namespace GoogleDrivePushCli
             {
                 IsRequired = true
             };
+            var depthOption = new Option<int>(["--depth", "-d"], "The depth that to sync the folder at.")
+            {
+                IsRequired = true
+            };
             var initializeCommand = new Command("initialize", "Initializes the Google Drive synchronization.")
             {
                 folderIdOption
             };
             initializeCommand.AddAlias("init");
-            initializeCommand.SetHandler(InitializeHandler, workingDirectoryOption, verboseOption, folderIdOption);
+            initializeCommand.SetHandler(InitializeHandler, workingDirectoryOption, verboseOption, folderIdOption, depthOption);
 
             // Push command
             var confirmOption = new Option<bool>(["--yes", "-y"], "Confirm the action. Otherwise, only the potential changes are shown.");

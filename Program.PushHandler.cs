@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using GoogleDrivePushCli.Meta;
 
 namespace GoogleDrivePushCli
 {
@@ -9,14 +10,32 @@ namespace GoogleDrivePushCli
         {
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory);
+            var wasEdited = Push(workingDirectory, metadata.Structure, confirm, metadata.Depth);
+
+            // Update metadata
+            if (confirm && wasEdited)
+            {
+                WriteMetadata(metadata, workingDirectory);
+                Logger.Message("Push complete.");
+            }
+            if (!wasEdited) Logger.Message("Nothing to push.");
+        }
+
+        private static bool Push(string directory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int depth = 0)
+        {
             var wasEdited = false;
-            foreach (string filePath in Directory.GetFiles(workingDirectory))
+
+            // Handle files
+            foreach (string filePath in Directory.GetFiles(directory))
             {
                 var fileName = Path.GetFileName(filePath);
-
-                // Skip the metadata file
+                if (folderMetadata.Ignore.Contains(fileName))
+                {
+                    Logger.Info($"Skipping local file '{fileName}'.");
+                    continue;
+                }
                 if (fileName == Defaults.metadataFileName) continue;
-                if (metadata.Mappings.TryGetValue(fileName, out var fileMetadata))
+                if (folderMetadata.Mappings.TryGetValue(fileName, out var fileMetadata))
                 {
                     var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
                     if (lastWriteTime <= fileMetadata.Timestamp) continue;
@@ -27,7 +46,7 @@ namespace GoogleDrivePushCli
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
-                        metadata.Mappings[fileName].Timestamp = DateTime.Now;
+                        folderMetadata.Mappings[fileName].Timestamp = DateTime.Now;
                         Logger.Info(message);
                     }
                     else Logger.ToDo(message);
@@ -39,8 +58,8 @@ namespace GoogleDrivePushCli
                     var message = $"Create remote file '{fileName}'.";
                     if (confirm)
                     {
-                        var file = DriveServiceWrapper.Instance.CreateFile(metadata.FolderId, filePath);
-                        metadata.Mappings[fileName] = new()
+                        var file = DriveServiceWrapper.Instance.CreateFile(folderMetadata.FolderId, filePath);
+                        folderMetadata.Mappings[fileName] = new()
                         {
                             FileId = file.Id,
                             Timestamp = DateTime.Now
@@ -50,9 +69,14 @@ namespace GoogleDrivePushCli
                     else Logger.ToDo(message);
                 }
             }
-            foreach (var pair in metadata.Mappings)
+            foreach (var pair in folderMetadata.Mappings)
             {
-                var filePath = Path.Join(workingDirectory, pair.Key);
+                if (folderMetadata.Ignore.Contains(pair.Key))
+                {
+                    Logger.Info($"Skipping cached remote file '{pair.Key}'.");
+                    continue;
+                }
+                var filePath = Path.Join(directory, pair.Key);
                 if (!File.Exists(filePath))
                 {
                     // The file was deleted
@@ -60,21 +84,71 @@ namespace GoogleDrivePushCli
                     var message = $"Delete remote file '{pair.Key}'.";
                     if (confirm)
                     {
-                        DriveServiceWrapper.Instance.MoveFileToTrash(pair.Value.FileId);
-                        metadata.Mappings.Remove(pair.Key);
+                        DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FileId);
+                        folderMetadata.Mappings.Remove(pair.Key);
                         Logger.Info(message);
                     }
                     else Logger.ToDo(message);
                 }
             }
 
-            // Update metadata
-            if (confirm && wasEdited)
+            // Handle folders
+            if (depth < maxDepth)
             {
-                WriteMetadata(metadata, workingDirectory);
-                Logger.Message("Push complete.");
+                foreach (string folderPath in Directory.GetDirectories(directory))
+                {
+                    var folderName = Path.GetDirectoryName(folderPath);
+                    if (folderMetadata.Ignore.Contains(folderName))
+                    {
+                        Logger.Info($"Skipping local folder '{folderName}'.");
+                        continue;
+                    }
+                    if (!folderMetadata.Nests.TryGetValue(folderName, out var nestedMetadata))
+                    {
+                        nestedMetadata = new();
+
+                        // The folder was created
+                        wasEdited = true;
+                        var message = $"Create remote folder '{folderName}'.";
+                        if (confirm)
+                        {
+                            var folder = DriveServiceWrapper.Instance.CreateFolder(folderMetadata.FolderId, folderName);
+                            nestedMetadata.FolderId = folder.Id;
+                            Logger.Info(message);
+                        }
+                        else Logger.ToDo(message);
+                        folderMetadata.Nests[folderName] = nestedMetadata;
+                    }
+                    wasEdited = Push(Path.Join(directory, folderName), nestedMetadata, confirm, maxDepth, depth + 1) || wasEdited;
+                }
+                foreach (var pair in folderMetadata.Nests)
+                {
+                    if (folderMetadata.Ignore.Contains(pair.Key))
+                    {
+                        Logger.Info($"Skipping cached remote folder '{pair.Key}'.");
+                        continue;
+                    }
+                    var folderPath = Path.Join(directory, pair.Key);
+                    if (Directory.Exists(folderPath))
+                    {
+                        wasEdited = Push(Path.Join(directory, pair.Key), pair.Value, confirm, maxDepth, depth + 1) || wasEdited;
+                    }
+                    else
+                    {
+                        // The folder was deleted
+                        wasEdited = true;
+                        var message = $"Delete remote folder '{pair.Key}'.";
+                        if (confirm)
+                        {
+                            DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FolderId);
+                            folderMetadata.Mappings.Remove(pair.Key);
+                            Logger.Info(message);
+                        }
+                        else Logger.ToDo(message);
+                    }
+                }
             }
-            if (!wasEdited) Logger.Message("Nothing to push.");
+            return wasEdited;
         }
     }
 }

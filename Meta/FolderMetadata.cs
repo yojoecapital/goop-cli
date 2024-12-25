@@ -12,6 +12,7 @@ namespace GoogleDrivePushCli.Meta
 
         [JsonPropertyName("folderId")]
         public string FolderId { get; set; } = string.Empty;
-
+        [JsonPropertyName("ignore")]
+        public HashSet<string> Ignore { get; set; } = [];
     }
 }

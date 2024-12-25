@@ -83,7 +83,6 @@ namespace GoogleDrivePushCli
                 }
                 foreach (var remoteFolder in remoteFolders.Values)
                 {
-                    Logger.Info($"Checking if remote folder '{remoteFolder.Name}' exists locally.");
                     if (!folderMetadata.Nests.ContainsKey(remoteFolder.Id))
                     {
                         wasEdited = true;
@@ -91,15 +90,14 @@ namespace GoogleDrivePushCli
                         {
                             FolderId = remoteFolder.Id
                         };
-                        Logger.Info($"Remote folder '{remoteFolder.Name}' does not exist locally.");
+                        Logger.Info($"Added remote folder '{remoteFolder.Name}' to cache.");
                     }
                 }
 
                 // Handle nests
-                var nestWasEdited = folderMetadata.Nests.Select(nest => Fetch(nest.Value, maxDepth, depth + 1))
-                    .Aggregate(false, (current, result) => current || result); // Don't use Any because it will short circuit
-
-                return wasEdited || nestWasEdited;
+                wasEdited = folderMetadata.Nests.Select(nest => Fetch(nest.Value, maxDepth, depth + 1))
+                    .Aggregate(false, (current, result) => current || result) // Don't use Any because it will short circuit
+                    || wasEdited;
             }
             else if (folderMetadata.Nests.Count > 0)
             {
