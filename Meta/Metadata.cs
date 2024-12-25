@@ -5,10 +5,11 @@ namespace GoogleDrivePushCli.Meta
 {
     public class Metadata
     {
-        [JsonPropertyName("mappings")]
-        public Dictionary<string, FileMetadata> Mappings { get; set; } = new();
+        [JsonPropertyName("structure")]
+        public FolderMetadata Structure { get; set; } = new FolderMetadata();
+        [JsonPropertyName("depth")]
+        public int Depth { get; set; } = 3;
 
-        [JsonPropertyName("folderId")]
-        public string FolderId { get; set; } = string.Empty;
+
     }
 }

@@ -1,28 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using GoogleDrivePushCli.Meta;
 
 namespace GoogleDrivePushCli
 {
     internal partial class Program
     {
-        private static void InitializeHandler(string workingDirectory, bool verbose, string folderId)
+        private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int maxDepth)
         {
             InitializeProgram(verbose);
 
             // Ensure working directory exists and is empty
             Directory.CreateDirectory(workingDirectory);
-            if (Directory.GetFiles(workingDirectory).Length > 0) throw new InvalidOperationException($"The working directory '{workingDirectory}' is not empty.");
 
-            var folderName = DriveServiceWrapper.Instance.GetFolderName(folderId);
-            Logger.Info($"Initializing sync for folder '{folderName}'.");
-
-            // Traverse Google Drive folder, copy files, and create metadata file 
-            var metadata = new Metadata
+            // Create metadata
+            var metadata = new Metadata()
             {
-                FolderId = folderId,
-                Mappings = CopyDriveFolderToLocal(folderId, workingDirectory)
+                Structure = CreateFolderMetadata(folderId, maxDepth),
+                Depth = maxDepth
             };
 
             // Write metadata
@@ -30,21 +28,37 @@ namespace GoogleDrivePushCli
             Logger.Message("Initialization complete.");
         }
 
-        private static Dictionary<string, FileMetadata> CopyDriveFolderToLocal(string folderId, string workingDirectory)
+        private static FolderMetadata CreateFolderMetadata(string folderId, int maxDepth, int depth = 0)
         {
-            var mappings = new Dictionary<string, FileMetadata>();
-            foreach (var file in DriveServiceWrapper.Instance.GetFiles(folderId))
-            {
-                var filePath = DriveServiceWrapper.Instance.DownloadFile(workingDirectory, file);
+            var items = DriveServiceWrapper.Instance.GetItems(folderId, out var folder);
+            Logger.Info($"{new string('.', depth)}Initializing sync for folder '{folder.Name}' ({folder.Id}).");
+            var parent = DriveServiceWrapper.Instance.GetItem(folderId);
 
-                // Add metadata
-                mappings[file.Name] = new()
+            // Handle mappings
+            var files = items.Where(item => item.MimeType != DriveServiceWrapper.folderMimeType);
+            var mappings = files.ToDictionary(
+                file => file.Name,
+                file => new FileMetadata()
                 {
-                    Timestamp = File.GetLastWriteTimeUtc(filePath),
+                    Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime,
                     FileId = file.Id
-                };
-            }
-            return mappings;
+                }
+            );
+
+            // Handles nests
+            var folders = items.Where(item => item.MimeType == DriveServiceWrapper.folderMimeType);
+            var nests = depth < maxDepth ? folders.ToDictionary(
+                folder => folder.Name,
+                folder => CreateFolderMetadata(folder.Id, maxDepth, depth + 1)
+            ) : [];
+
+            // Return the metadata
+            return new FolderMetadata()
+            {
+                FolderId = folderId,
+                Mappings = mappings,
+                Nests = nests
+            };
         }
     }
 }

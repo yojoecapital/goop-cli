@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
-using Google;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
@@ -17,6 +17,7 @@ namespace GoogleDrivePushCli
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
         private static DriveServiceWrapper instance;
+        public static readonly string folderMimeType = "application/vnd.google-apps.folder";
 
         public static DriveServiceWrapper Instance
         {
@@ -84,17 +85,6 @@ namespace GoogleDrivePushCli
             return request.ResponseBody;
         }
 
-        public void MoveFileToTrash(string fileId)
-        {
-            var body = new Google.Apis.Drive.v3.Data.File
-            {
-                Trashed = true
-            };
-            var request = service.Files.Update(body, fileId);
-            request.Execute();
-            Logger.Info($"File ({fileId}) has been moved to trash.");
-        }
-
         public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath)
         {
             var body = new Google.Apis.Drive.v3.Data.File()
@@ -114,22 +104,6 @@ namespace GoogleDrivePushCli
             return request.ResponseBody;
         }
 
-        public IEnumerable<Google.Apis.Drive.v3.Data.File> GetFiles(string folderId)
-        {
-            try
-            {
-                var request = service.Files.List();
-                request.Q = $"'{folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'";
-                request.Fields = "files(id, name, mimeType, modifiedTime)";
-                var result = request.Execute();
-                return result.Files;
-            }
-            catch
-            {
-                throw new Exception($"Failed to fetch files for folder ID '{folderId}'.");
-            }
-        }
-
         public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file)
         {
             var path = Path.Combine(workingDirectory, file.Name);
@@ -137,35 +111,61 @@ namespace GoogleDrivePushCli
             var request = service.Files.Get(file.Id);
             request.MediaDownloader.ProgressChanged += progress =>
             {
-                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"Downloaded '{file.Name}'.");
+                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfullys.");
             };
             request.Download(stream);
             return path;
         }
 
-        public Google.Apis.Drive.v3.Data.File GetFile(string fileId)
+        public void MoveFileToTrash(string fileId)
         {
-            // Ensure folder exists in Google Drive
-            var request = service.Files.Get(fileId);
-            request.Fields = "id, name, mimeType, modifiedTime";
+            var body = new Google.Apis.Drive.v3.Data.File
+            {
+                Trashed = true
+            };
+            var request = service.Files.Update(body, fileId);
+            request.Execute();
+            Logger.Info($"File ({fileId}) has been trashed successfully.");
+        }
+
+        public IEnumerable<Google.Apis.Drive.v3.Data.File> GetItems(string folderId, out Google.Apis.Drive.v3.Data.File folder)
+        {
             try
             {
-                return request.Execute();
+                var request = service.Files.List();
+                request.Q = $"('{folderId}' in parents or id = '{folderId}') and trashed = false";
+                request.Fields = "files(id, name, mimeType, modifiedTime)";
+                var result = request.Execute();
+
+                // Extract folder name
+                folder = result.Files.FirstOrDefault(
+                    f => f.Id == folderId && f.MimeType == folderMimeType
+                ) ?? throw new Exception($"A folder with ID '{folderId}' could not be found.");
+
+                // Return children excluding the folder itself
+                return result.Files.Where(f => f.Id != folderId);
             }
             catch
             {
-                throw new InvalidOperationException($"Remote item ('{fileId}') does not exist.");
+                throw new Exception($"Failed to fetch items for a folder with an ID of '{folderId}'.");
             }
         }
 
-        public string GetFolderName(string folderId)
+        public Google.Apis.Drive.v3.Data.File GetItem(string fileId)
         {
             // Ensure folder exists in Google Drive
-            var folder = GetFile(folderId);
-
-            // Ensure the retrieved item is a file
-            if (folder.MimeType != "application/vnd.google-apps.folder") throw new InvalidOperationException($"The provided ID '{folderId}' is not a folder.");
-            return folder.Name;
+            var request = service.Files.Get(fileId);
+            request.Fields = "id, name, mimeType, modifiedTime, trashed";
+            try
+            {
+                var file = request.Execute();
+                if (file.Trashed.HasValue && file.Trashed.Value) throw new Exception($"Remote item ('{fileId}') has been trashed.");
+                return file;
+            }
+            catch
+            {
+                throw new Exception($"Remote item ('{fileId}') does not exist.");
+            }
         }
     }
 }
