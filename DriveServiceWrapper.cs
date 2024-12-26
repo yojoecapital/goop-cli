@@ -133,7 +133,7 @@ namespace GoogleDrivePushCli
             var request = service.Files.Get(file.Id);
             request.MediaDownloader.ProgressChanged += progress =>
             {
-                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfullys.");
+                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.");
             };
             request.Download(stream);
             return path;
