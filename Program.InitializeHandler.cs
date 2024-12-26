@@ -33,7 +33,7 @@ namespace GoogleDrivePushCli
         private static FolderMetadata CreateFolderMetadata(string folderId, int maxDepth, int depth = 0)
         {
             var items = DriveServiceWrapper.Instance.GetItems(folderId, out var folder);
-            Logger.Info($"{string.Concat(Enumerable.Repeat("+ ", depth))}Initializing sync for folder '{folder.Name}' ({folder.Id}).");
+            Logger.Info($"Initializing sync for folder '{folder.Name}' ({folder.Id}).", depth);
             var parent = DriveServiceWrapper.Instance.GetItem(folderId);
 
             // Handle mappings

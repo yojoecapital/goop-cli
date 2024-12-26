@@ -40,7 +40,7 @@ namespace GoogleDrivePushCli
                 if (File.Exists(filePath))
                 {
                     var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
-                    if (lastWriteTime <= pair.Value.Timestamp) continue;
+                    if (lastWriteTime >= pair.Value.Timestamp) continue;
 
                     // The file was updated
                     wasEdited = true;

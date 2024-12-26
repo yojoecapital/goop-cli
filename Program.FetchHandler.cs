@@ -30,7 +30,7 @@ namespace GoogleDrivePushCli
 
             // Handle files
             var remoteFiles = remoteItems.Where(item => item.MimeType != DriveServiceWrapper.folderMimeType).ToDictionary(file => file.Id);
-            Logger.Info($"{string.Concat(Enumerable.Repeat("+ ", depth))}Fetching remote data for folder '{folder.Name}' ({folder.Id}).", depth);
+            Logger.Info($"Fetching remote data for folder '{folder.Name}' ({folder.Id}).", depth);
             foreach (var pair in folderMetadata.Mappings)
             {
                 Logger.Info($"Checking if remote file '{pair.Key}' was deleted.", depth);
