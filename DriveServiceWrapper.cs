@@ -67,7 +67,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public Google.Apis.Drive.v3.Data.File UpdateFile(string fileId, string localFilePath)
+        public Google.Apis.Drive.v3.Data.File UpdateFile(string fileId, string localFilePath, int depth)
         {
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var body = service.Files.Get(fileId).Execute();
@@ -81,11 +81,11 @@ namespace GoogleDrivePushCli
                 if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
+            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.", depth);
             return request.ResponseBody;
         }
 
-        public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath)
+        public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath, int depth)
         {
             var body = new Google.Apis.Drive.v3.Data.File()
             {
@@ -100,11 +100,11 @@ namespace GoogleDrivePushCli
                 if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
             };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
+            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.", depth);
             return request.ResponseBody;
         }
 
-        public Google.Apis.Drive.v3.Data.File CreateFolder(string parentFolderId, string folderName)
+        public Google.Apis.Drive.v3.Data.File CreateFolder(string parentFolderId, string folderName, int depth)
         {
             try
             {
@@ -117,7 +117,7 @@ namespace GoogleDrivePushCli
                 var request = service.Files.Create(body);
                 request.Fields = "id, name";
                 var createdFolder = request.Execute();
-                Logger.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.");
+                Logger.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.", depth);
                 return createdFolder;
             }
             catch (Exception ex)
@@ -126,20 +126,20 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file)
+        public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file, int depth)
         {
             var path = Path.Combine(workingDirectory, file.Name);
             using var stream = new FileStream(path, FileMode.Create);
             var request = service.Files.Get(file.Id);
             request.MediaDownloader.ProgressChanged += progress =>
             {
-                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.");
+                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.", depth);
             };
             request.Download(stream);
             return path;
         }
 
-        public void MoveItemToTrash(string id)
+        public void MoveItemToTrash(string id, int depth)
         {
             var body = new Google.Apis.Drive.v3.Data.File
             {
@@ -147,7 +147,7 @@ namespace GoogleDrivePushCli
             };
             var request = service.Files.Update(body, id);
             request.Execute();
-            Logger.Info($"Item ({id}) has been trashed successfully.");
+            Logger.Info($"Item ({id}) has been trashed successfully.", depth);
         }
 
         public IEnumerable<Google.Apis.Drive.v3.Data.File> GetItems(string folderId, out Google.Apis.Drive.v3.Data.File folder)

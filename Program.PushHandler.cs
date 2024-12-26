@@ -48,7 +48,7 @@ namespace GoogleDrivePushCli
                     var message = $"Edit remote file '{Path.Join(relativePath, fileName)}'.";
                     if (confirm)
                     {
-                        var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
+                        var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath, depth);
                         folderMetadata.Mappings[fileName].Timestamp = DateTime.UtcNow;
                         Logger.Info(message, depth);
                     }
@@ -61,7 +61,7 @@ namespace GoogleDrivePushCli
                     var message = $"Create remote file '{Path.Join(relativePath, fileName)}'.";
                     if (confirm)
                     {
-                        var file = DriveServiceWrapper.Instance.CreateFile(folderMetadata.FolderId, filePath);
+                        var file = DriveServiceWrapper.Instance.CreateFile(folderMetadata.FolderId, filePath, depth);
                         folderMetadata.Mappings[fileName] = new()
                         {
                             FileId = file.Id,
@@ -88,7 +88,7 @@ namespace GoogleDrivePushCli
                     var message = $"Delete remote file '{Path.Join(relativePath, pair.Key)}'.";
                     if (confirm)
                     {
-                        DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FileId);
+                        DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FileId, depth);
                         folderMetadata.Mappings.Remove(pair.Key);
                         Logger.Info(message, depth);
                     }
@@ -117,7 +117,7 @@ namespace GoogleDrivePushCli
                         var message = $"Create remote folder '{Path.Join(relativePath, folderName)}'.";
                         if (confirm)
                         {
-                            var folder = DriveServiceWrapper.Instance.CreateFolder(folderMetadata.FolderId, folderName);
+                            var folder = DriveServiceWrapper.Instance.CreateFolder(folderMetadata.FolderId, folderName, depth);
                             nestedMetadata.FolderId = folder.Id;
                             Logger.Info(message, depth);
                         }
@@ -144,7 +144,7 @@ namespace GoogleDrivePushCli
                         var message = $"Delete remote folder '{Path.Join(relativePath, pair.Key)}'.";
                         if (confirm)
                         {
-                            DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FolderId);
+                            DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FolderId, depth);
                             folderMetadata.Mappings.Remove(pair.Key);
                             Logger.Info(message, depth);
                         }

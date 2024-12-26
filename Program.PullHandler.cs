@@ -48,7 +48,7 @@ namespace GoogleDrivePushCli
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetItem(pair.Value.FileId);
-                        DriveServiceWrapper.Instance.DownloadFile(directory, file);
+                        DriveServiceWrapper.Instance.DownloadFile(directory, file, depth);
                         folderMetadata.Mappings[pair.Key] = new()
                         {
                             Timestamp = File.GetLastWriteTimeUtc(filePath),
@@ -66,7 +66,7 @@ namespace GoogleDrivePushCli
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetItem(pair.Value.FileId);
-                        DriveServiceWrapper.Instance.DownloadFile(directory, file);
+                        DriveServiceWrapper.Instance.DownloadFile(directory, file, depth);
                         folderMetadata.Mappings[pair.Key] = new()
                         {
                             Timestamp = File.GetLastWriteTimeUtc(filePath),

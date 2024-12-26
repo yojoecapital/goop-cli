@@ -28,8 +28,9 @@ namespace GoogleDrivePushCli
 
         public static void Percent(int current, int total)
         {
-            var fraction = Math.Max(0, Math.Min(1, (float)current / total));
-            Console.Write($"[%...] {fraction * 100:F2}    \r");
+            var percent = Math.Max(0, Math.Min(0.9999f, (float)current / total)) * 100;
+            if (float.IsNaN(percent)) percent = 0;
+            Console.Write($"[%...] {percent:F2}    \r");
         }
 
         private static string Repeat(int count) => string.Concat(Enumerable.Repeat("+ ", count));
