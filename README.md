@@ -21,15 +21,13 @@ This program requires the **Google Drive API** to be enabled and to have the `cr
 
 ## Usage
 
-Run `goop --help` for detailed usage information.
+```bash
+goop --help # ❓
+```
 
 ### Initialize
 
-Use `initialize` or `init` to link a Google Drive folder to a local directory.
-
-```bash
-goop init 1aBcD2EfGh3IjKl4MnOpQrSt
-```
+Use `initialize <folderId>` or `init <folderId>` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull` to download the remove files onto your system.
 
 ### Fetch
 
@@ -43,7 +41,9 @@ Upload local changes to the linked Google Drive folder. Passing `--yes` will com
 
 Download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
 
+### Ignore
 
+Use `ignore <path>` to add an item with the path `<path>` to the ignored list. Files under the ignored list will not be pulled or pushed. Passing `--remove` will remove the file from the ignored list.
 
 ## Building
 

@@ -7,12 +7,12 @@ namespace GoogleDrivePushCli
 {
     internal partial class Program
     {
-        private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int maxDepth)
+        private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int depth)
         {
             InitializeProgram(verbose);
             var rootDirectory = GetRootFolder(workingDirectory);
             if (rootDirectory != null) throw new Exception($"An existing metadata file at {rootDirectory} was found. Remove the '{Defaults.metadataFileName}' file or initialize elsewhere.");
-            if (maxDepth <= 0) throw new Exception("Depth must be greater than 0");
+            if (depth < 0) throw new Exception("Depth must be at least 0");
             Logger.Message("Creating metadata file...");
 
             // Ensure working directory exists and is empty
@@ -21,8 +21,8 @@ namespace GoogleDrivePushCli
             // Create metadata
             var metadata = new Metadata()
             {
-                Structure = CreateFolderMetadata(folderId, maxDepth),
-                Depth = maxDepth
+                Structure = CreateFolderMetadata(folderId, depth),
+                Depth = depth
             };
 
             // Write metadata

@@ -67,7 +67,7 @@ namespace GoogleDrivePushCli
             fetchCommand.SetHandler(FetchHandler, workingDirectoryOption, verboseOption);
 
             // Info command
-            var infoCommand = new Command("info", "Outputs information about synced folder.");
+            var infoCommand = new Command("info", "Outputs information about sync folder.");
             infoCommand.SetHandler(InfoHandler, workingDirectoryOption, verboseOption);
 
             // Ignore command
