@@ -27,7 +27,7 @@ goop --help # ❓
 
 ### Initialize
 
-Use `initialize <folderId>` or `init <folderId>` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull` to download the remove files onto your system.
+Use `initialize <folderId>` or `init <folderId>` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull --yes` to download the remote files onto your system.
 
 ### Fetch
 
