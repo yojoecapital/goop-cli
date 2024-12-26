@@ -49,7 +49,7 @@ namespace GoogleDrivePushCli
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
-                        folderMetadata.Mappings[fileName].Timestamp = DateTime.UtcNow.AddHours(10);
+                        folderMetadata.Mappings[fileName].Timestamp = DateTime.UtcNow;
                         Logger.Info(message, depth);
                     }
                     else Logger.ToDo(message, depth);
@@ -65,7 +65,7 @@ namespace GoogleDrivePushCli
                         folderMetadata.Mappings[fileName] = new()
                         {
                             FileId = file.Id,
-                            Timestamp = DateTime.UtcNow.AddHours(10)
+                            Timestamp = DateTime.UtcNow
                         };
                         Logger.Info(message, depth);
                     }
