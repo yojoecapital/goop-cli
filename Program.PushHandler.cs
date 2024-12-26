@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using GoogleDrivePushCli.Meta;
 
 namespace GoogleDrivePushCli
@@ -10,7 +11,7 @@ namespace GoogleDrivePushCli
         {
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory, out workingDirectory);
-            var wasEdited = Push(workingDirectory, metadata.Structure, confirm, metadata.Depth);
+            var wasEdited = Push(workingDirectory, workingDirectory, metadata.Structure, confirm, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (confirm && wasEdited)
@@ -21,9 +22,11 @@ namespace GoogleDrivePushCli
             if (!wasEdited) Logger.Message("Nothing to push.");
         }
 
-        private static bool Push(string directory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int depth = 0)
+        private static bool Push(string directory, string workingDirectory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int total, int depth = 0, int current = 0)
         {
             var wasEdited = false;
+            Logger.Info($"Checking to push into remote folder '{Path.GetFileName(directory)}' ({folderMetadata.FolderId}).", depth);
+            var relativePath = Path.GetRelativePath(workingDirectory, directory);
 
             // Handle files
             foreach (string filePath in Directory.GetFiles(directory))
@@ -31,7 +34,7 @@ namespace GoogleDrivePushCli
                 var fileName = Path.GetFileName(filePath);
                 if (folderMetadata.Ignore.Contains(fileName))
                 {
-                    Logger.Info($"Skipping local file '{fileName}'.");
+                    Logger.Info($"Skipping local file '{Path.Join(relativePath, fileName)}'.", depth);
                     continue;
                 }
                 if (fileName == Defaults.metadataFileName) continue;
@@ -42,38 +45,39 @@ namespace GoogleDrivePushCli
 
                     // The file was updated
                     wasEdited = true;
-                    var message = $"Edit remote file '{fileName}'.";
+                    var message = $"Edit remote file '{Path.Join(relativePath, fileName)}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.UpdateFile(fileMetadata.FileId, filePath);
-                        folderMetadata.Mappings[fileName].Timestamp = DateTime.Now;
-                        Logger.Info(message);
+                        folderMetadata.Mappings[fileName].Timestamp = DateTime.UtcNow.AddHours(10);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
                 else
                 {
                     // The file was created
                     wasEdited = true;
-                    var message = $"Create remote file '{fileName}'.";
+                    var message = $"Create remote file '{Path.Join(relativePath, fileName)}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.CreateFile(folderMetadata.FolderId, filePath);
                         folderMetadata.Mappings[fileName] = new()
                         {
                             FileId = file.Id,
-                            Timestamp = DateTime.Now
+                            Timestamp = DateTime.UtcNow.AddHours(10)
                         };
-                        Logger.Info(message);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
+                Logger.Percent(++current, total);
             }
             foreach (var pair in folderMetadata.Mappings)
             {
                 if (folderMetadata.Ignore.Contains(pair.Key))
                 {
-                    Logger.Info($"Skipping cached remote file '{pair.Key}'.");
+                    Logger.Info($"Skipping cached remote file '{Path.Join(relativePath, pair.Key)}'.", depth);
                     continue;
                 }
                 var filePath = Path.Join(directory, pair.Key);
@@ -81,15 +85,16 @@ namespace GoogleDrivePushCli
                 {
                     // The file was deleted
                     wasEdited = true;
-                    var message = $"Delete remote file '{pair.Key}'.";
+                    var message = $"Delete remote file '{Path.Join(relativePath, pair.Key)}'.";
                     if (confirm)
                     {
                         DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FileId);
                         folderMetadata.Mappings.Remove(pair.Key);
-                        Logger.Info(message);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
+                Logger.Percent(++current, total);
             }
 
             // Handle folders
@@ -100,7 +105,7 @@ namespace GoogleDrivePushCli
                     var folderName = Path.GetFileName(folderPath);
                     if (folderMetadata.Ignore.Contains(folderName))
                     {
-                        Logger.Info($"Skipping local folder '{folderName}'.");
+                        Logger.Info($"Skipping local folder '{Path.Join(relativePath, folderName)}'.", depth);
                         continue;
                     }
                     if (!folderMetadata.Nests.TryGetValue(folderName, out var nestedMetadata))
@@ -109,42 +114,41 @@ namespace GoogleDrivePushCli
 
                         // The folder was created
                         wasEdited = true;
-                        var message = $"Create remote folder '{folderName}'.";
+                        var message = $"Create remote folder '{Path.Join(relativePath, folderName)}'.";
                         if (confirm)
                         {
                             var folder = DriveServiceWrapper.Instance.CreateFolder(folderMetadata.FolderId, folderName);
                             nestedMetadata.FolderId = folder.Id;
-                            Logger.Info(message);
+                            Logger.Info(message, depth);
                         }
-                        else Logger.ToDo(message);
+                        else Logger.ToDo(message, depth);
                         folderMetadata.Nests[folderName] = nestedMetadata;
                     }
-                    wasEdited = Push(Path.Join(directory, folderName), nestedMetadata, confirm, maxDepth, depth + 1) || wasEdited;
                 }
                 foreach (var pair in folderMetadata.Nests)
                 {
                     if (folderMetadata.Ignore.Contains(pair.Key))
                     {
-                        Logger.Info($"Skipping cached remote folder '{pair.Key}'.");
+                        Logger.Info($"Skipping cached remote folder '{Path.Join(relativePath, pair.Key)}'.", depth);
                         continue;
                     }
                     var folderPath = Path.Join(directory, pair.Key);
                     if (Directory.Exists(folderPath))
                     {
-                        wasEdited = Push(Path.Join(directory, pair.Key), pair.Value, confirm, maxDepth, depth + 1) || wasEdited;
+                        wasEdited = Push(Path.Join(directory, pair.Key), workingDirectory, pair.Value, confirm, maxDepth, total, depth + 1, current) || wasEdited;
                     }
                     else
                     {
                         // The folder was deleted
                         wasEdited = true;
-                        var message = $"Delete remote folder '{pair.Key}'.";
+                        var message = $"Delete remote folder '{Path.Join(relativePath, pair.Key)}'.";
                         if (confirm)
                         {
                             DriveServiceWrapper.Instance.MoveItemToTrash(pair.Value.FolderId);
                             folderMetadata.Mappings.Remove(pair.Key);
-                            Logger.Info(message);
+                            Logger.Info(message, depth);
                         }
-                        else Logger.ToDo(message);
+                        else Logger.ToDo(message, depth);
                     }
                 }
             }

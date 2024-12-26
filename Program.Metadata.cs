@@ -1,15 +1,31 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Google.Apis.Drive.v3;
 using GoogleDrivePushCli.Meta;
 
 namespace GoogleDrivePushCli
 {
     internal partial class Program
     {
-        private static Metadata ReadMetadata(string workingDirectory, out string path)
+        private static string GetRootFolder(string workingDirectory)
         {
-            path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
+            try
+            {
+                var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
+                return Path.GetDirectoryName(path);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Metadata ReadMetadata(string workingDirectory, out string updatedWorkingDirectory)
+        {
+            var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
+            updatedWorkingDirectory = Path.GetDirectoryName(path);
+            Logger.Info($"Working directory is set to '{updatedWorkingDirectory}'.");
             try
             {
                 return JsonSerializer.Deserialize(File.ReadAllText(path), MetadataJsonContext.Default.Metadata);
@@ -22,10 +38,11 @@ namespace GoogleDrivePushCli
 
         private static void WriteMetadata(Metadata metadata, string workingDirectory)
         {
-            var path = Path.Join(workingDirectory, Defaults.metadataFileName);
+            var path = Path.GetFullPath(Path.Join(workingDirectory, Defaults.metadataFileName));
             try
             {
                 File.WriteAllText(path, JsonSerializer.Serialize(metadata, MetadataJsonContext.Default.Metadata));
+                Logger.Info($"Wrote metadata to '{path}'.");
             }
             catch
             {
@@ -42,7 +59,7 @@ namespace GoogleDrivePushCli
                 depth++;
                 var filePath = Path.Combine(current.FullName, fileName);
 
-                if (File.Exists(filePath)) return filePath;
+                if (File.Exists(filePath)) return Path.GetFullPath(filePath);
                 current = current.Parent;
             }
             throw new FileNotFoundException($"A metadata file could not be loaded from '{path}'.");

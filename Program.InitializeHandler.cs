@@ -10,7 +10,10 @@ namespace GoogleDrivePushCli
         private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int maxDepth)
         {
             InitializeProgram(verbose);
+            var rootDirectory = GetRootFolder(workingDirectory);
+            if (rootDirectory != null) throw new Exception($"An existing metadata file at {rootDirectory} was found. Remove the '{Defaults.metadataFileName}' file or initialize elsewhere.");
             if (maxDepth <= 0) throw new Exception("Depth must be greater than 0");
+            Logger.Message("Creating metadata file...");
 
             // Ensure working directory exists and is empty
             Directory.CreateDirectory(workingDirectory);
@@ -24,13 +27,13 @@ namespace GoogleDrivePushCli
 
             // Write metadata
             WriteMetadata(metadata, workingDirectory);
-            Logger.Message("Initialization complete.");
+            Logger.Message("Initialization complete. Ready to pull.");
         }
 
         private static FolderMetadata CreateFolderMetadata(string folderId, int maxDepth, int depth = 0)
         {
             var items = DriveServiceWrapper.Instance.GetItems(folderId, out var folder);
-            Logger.Info($"{new string('.', depth)}Initializing sync for folder '{folder.Name}' ({folder.Id}).");
+            Logger.Info($"{string.Concat(Enumerable.Repeat("+ ", depth))}Initializing sync for folder '{folder.Name}' ({folder.Id}).");
             var parent = DriveServiceWrapper.Instance.GetItem(folderId);
 
             // Handle mappings

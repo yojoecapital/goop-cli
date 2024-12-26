@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace GoogleDrivePushCli
 {
@@ -7,11 +8,11 @@ namespace GoogleDrivePushCli
         // The verbose flag will control whether INFO level messages are logged
         public static bool verbose;
 
-        public static void Info(string message)
+        public static void Info(string message, int depth = 0)
         {
             if (!verbose) return;
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine($"[INFO] {message}");
+            Console.WriteLine($"[INFO] {Repeat(depth)}{message}");
             Console.ResetColor();
         }
 
@@ -22,29 +23,15 @@ namespace GoogleDrivePushCli
             Console.ResetColor();
         }
 
-        public static void ToDo(string message) => Console.WriteLine($"[TODO] {message}");
-        public static void Message(string message) => Console.WriteLine(message);
+        public static void ToDo(string message, int depth = 0) => Console.WriteLine($"[TODO] {Repeat(depth)}{message}");
+        public static void Message(string message, int depth = 0) => Console.WriteLine((Repeat(depth) + message).PadRight(16));
 
-        private static int lastBarLength = 0;
-        public static void ProgressBar(double fraction)
+        public static void Percent(int current, int total)
         {
-            if (verbose) return;
-            fraction = Math.Max(0, Math.Min(1, fraction));
-            int terminalWidth = Console.WindowWidth;
-            const int extraSpace = 10; // 2 for "[]" + 8 for " 100% "
-            int barWidth = Math.Max(0, terminalWidth - extraSpace);
-            int filledWidth = (int)(fraction * barWidth);
-            string bar = "[" + new string('=', filledWidth) + new string(' ', barWidth - filledWidth) + "]";
-
-            // Erase the previous bar by overwriting
-            if (lastBarLength > 0) Console.Write("\r" + new string(' ', lastBarLength) + "\r");
-
-            // Print the bar and fraction
-            string output = $"{bar} {fraction:P0}";
-            Console.Write(output);
-
-            // Update the last bar length
-            lastBarLength = output.Length;
+            var fraction = Math.Max(0, Math.Min(1, (float)current / total));
+            Console.Write($"[%...] {fraction * 100:F2}    \r");
         }
+
+        private static string Repeat(int count) => string.Concat(Enumerable.Repeat("+ ", count));
     }
 }

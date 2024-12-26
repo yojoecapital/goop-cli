@@ -10,8 +10,8 @@ namespace GoogleDrivePushCli
         private static void FetchHandler(string workingDirectory, bool verbose)
         {
             InitializeProgram(verbose);
-            var metadata = ReadMetadata(workingDirectory);
-            var wasEdited = Fetch(metadata.Structure, metadata.Depth);
+            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
+            var wasEdited = Fetch(metadata.Structure, workingDirectory, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (wasEdited)
@@ -22,23 +22,25 @@ namespace GoogleDrivePushCli
             else Logger.Message("Up to date.");
         }
 
-        private static bool Fetch(FolderMetadata folderMetadata, int maxDepth, int depth = 0)
+        private static bool Fetch(FolderMetadata folderMetadata, string workingDirectory, int maxDepth, int total, int depth = 0, int current = 0)
         {
             var wasEdited = false;
             var remoteItems = DriveServiceWrapper.Instance.GetItems(folderMetadata.FolderId, out var folder);
+            Logger.Info($"Stepping into '{folder.Name}'", depth);
 
             // Handle files
             var remoteFiles = remoteItems.Where(item => item.MimeType != DriveServiceWrapper.folderMimeType).ToDictionary(file => file.Id);
-            Logger.Info($"{new string('.', depth)}Fetching remote data for folder '{folder.Name}' ({folder.Id}).");
+            Logger.Info($"{string.Concat(Enumerable.Repeat("+ ", depth))}Fetching remote data for folder '{folder.Name}' ({folder.Id}).", depth);
             foreach (var pair in folderMetadata.Mappings)
             {
-                Logger.Info($"Checking if remote file '{pair.Key}' was deleted.");
+                Logger.Info($"Checking if remote file '{pair.Key}' was deleted.", depth);
                 if (!remoteFiles.ContainsKey(pair.Value.FileId))
                 {
                     wasEdited = true;
                     folderMetadata.Mappings.Remove(pair.Key);
-                    Logger.Info($"Remote file '{pair.Key}' was deleted.");
+                    Logger.Info($"Remote file '{pair.Key}' was deleted.", depth);
                 }
+                Logger.Percent(++current, total);
             }
             foreach (var file in remoteFiles.Values)
             {
@@ -46,12 +48,12 @@ namespace GoogleDrivePushCli
                 {
                     var timestamp = fileMetadata.Timestamp;
                     var remoteTimestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime;
-                    Logger.Info($"Checking if remote file '{file.Name}' was updated by comparing remote time '{remoteTimestamp}' to cached remote time '{timestamp}' (>).");
+                    Logger.Info($"Checking if remote file '{file.Name}' was updated by comparing remote time '{remoteTimestamp}' to cached remote time '{timestamp}' (>).", depth);
                     if (remoteTimestamp > timestamp)
                     {
                         wasEdited = true;
                         fileMetadata.Timestamp = remoteTimestamp;
-                        Logger.Info($"Remote file '{file.Name}' was updated from {timestamp} to {remoteTimestamp}.");
+                        Logger.Info($"Remote file '{file.Name}' was updated from {timestamp} to {remoteTimestamp}.", depth);
                     }
                 }
                 else
@@ -62,40 +64,42 @@ namespace GoogleDrivePushCli
                         Timestamp = file.ModifiedTimeDateTimeOffset.Value.DateTime,
                         FileId = file.Id
                     };
-                    Logger.Info($"Remote file '{file.Name}' was created.");
+                    Logger.Info($"Remote file '{file.Name}' was created.", depth);
                 }
+                Logger.Percent(++current, total);
             }
 
             // Handle folders
             if (depth < maxDepth)
             {
-                var remoteFolders = remoteItems.Where(item => item.MimeType != DriveServiceWrapper.folderMimeType).ToDictionary(folder => folder.Id);
+                var remoteFolders = remoteItems.Where(item => item.MimeType == DriveServiceWrapper.folderMimeType).ToDictionary(folder => folder.Id);
 
                 foreach (var pair in folderMetadata.Nests)
                 {
-                    Logger.Info($"Checking if remote folder '{pair.Key}' was deleted.");
+                    Logger.Info($"Checking if remote folder '{pair.Key}' was deleted.", depth);
                     if (!remoteFolders.ContainsKey(pair.Value.FolderId))
                     {
                         wasEdited = true;
                         folderMetadata.Nests.Remove(pair.Key);
-                        Logger.Info($"Remote folder '{pair.Key}' was deleted.");
+                        Logger.Info($"Remote folder '{pair.Key}' was deleted.", depth);
                     }
                 }
                 foreach (var remoteFolder in remoteFolders.Values)
                 {
-                    if (!folderMetadata.Nests.ContainsKey(remoteFolder.Id))
+                    Logger.Info($"Checking if remote folder '{remoteFolder.Name}' is cached.", depth);
+                    if (!folderMetadata.Nests.ContainsKey(remoteFolder.Name))
                     {
                         wasEdited = true;
                         folderMetadata.Nests[remoteFolder.Name] = new()
                         {
                             FolderId = remoteFolder.Id
                         };
-                        Logger.Info($"Added remote folder '{remoteFolder.Name}' to cache.");
+                        Logger.Info($"Added remote folder '{remoteFolder.Name}' to cache.", depth);
                     }
                 }
 
                 // Handle nests
-                wasEdited = folderMetadata.Nests.Select(nest => Fetch(nest.Value, maxDepth, depth + 1))
+                wasEdited = folderMetadata.Nests.Select(nest => Fetch(nest.Value, workingDirectory, maxDepth, total, depth + 1, current))
                     .Aggregate(false, (current, result) => current || result) // Don't use Any because it will short circuit
                     || wasEdited;
             }
@@ -104,6 +108,7 @@ namespace GoogleDrivePushCli
                 // Trim off nests if the max depth was met
                 wasEdited = true;
                 folderMetadata.Nests = [];
+                Logger.Info($"Trimming of nested folders in cache at depth {depth}");
             }
             return wasEdited;
         }

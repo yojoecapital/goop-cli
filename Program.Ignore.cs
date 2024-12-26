@@ -6,7 +6,7 @@ namespace GoogleDrivePushCli
 {
     internal partial class Program
     {
-        private static void IgnoreHandler(string workingDirectory, bool verbose, string ingorePath)
+        private static void IgnoreHandler(string workingDirectory, bool verbose, string ingorePath, bool add, bool remove)
         {
             InitializeProgram(verbose);
             var name = Path.GetFileName(ingorePath);
@@ -14,46 +14,34 @@ namespace GoogleDrivePushCli
             var metadata = ReadMetadata(workingDirectory, out workingDirectory);
             var folderMetadata = metadata.Structure;
             var trackingPath = workingDirectory;
-            foreach (var key in SplitPathIntoParts(path))
+            if (!string.IsNullOrEmpty(path))
             {
-                trackingPath = Path.Join(trackingPath, key);
-                if (folderMetadata.Nests.TryGetValue(key, out var nestedMetadata))
+                foreach (var key in SplitPathIntoParts(path))
                 {
-                    folderMetadata = nestedMetadata;
-                }
-                else
-                {
-                    throw new Exception($"The path at '${Path.GetRelativePath(workingDirectory, trackingPath)}' is not being tracked.");
+                    if (key == ".") continue;
+                    trackingPath = Path.Join(trackingPath, key);
+                    if (folderMetadata.Nests.TryGetValue(key, out var nestedMetadata))
+                    {
+                        folderMetadata = nestedMetadata;
+                    }
+                    else
+                    {
+                        throw new Exception($"The path at '{Path.GetRelativePath(workingDirectory, trackingPath)}' is not being tracked.");
+                    }
                 }
             }
-            folderMetadata.Ignore.Add(name);
-            WriteMetadata(metadata, workingDirectory);
-            Logger.Message($"Ignoring item '{name}' on the path ${trackingPath}");
-        }
-
-        private static void TrackHandler(string workingDirectory, bool verbose, string ingorePath)
-        {
-            InitializeProgram(verbose);
-            var name = Path.GetFileName(ingorePath);
-            var path = Path.GetDirectoryName(ingorePath);
-            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
-            var folderMetadata = metadata.Structure;
-            var trackingPath = workingDirectory;
-            foreach (var key in SplitPathIntoParts(path))
+            if (remove)
             {
-                trackingPath = Path.Join(trackingPath, key);
-                if (folderMetadata.Nests.TryGetValue(key, out var nestedMetadata))
-                {
-                    folderMetadata = nestedMetadata;
-                }
-                else
-                {
-                    throw new Exception($"The path at '${Path.GetRelativePath(workingDirectory, trackingPath)}' is not being tracked.");
-                }
+                if (!folderMetadata.Ignore.Remove(name)) Logger.Info($"The item '{name}' was not being ignored.");
+                else WriteMetadata(metadata, workingDirectory);
+                Logger.Message($"Not ignoring item '{name}' on the path '{Path.GetRelativePath(workingDirectory, trackingPath)}'.");
             }
-            if (!folderMetadata.Ignore.Remove(name)) Logger.Info($"The item '{name}' was not being ignored");
-            else WriteMetadata(metadata, workingDirectory);
-            Logger.Message($"Tracking item '{name}' on the path ${trackingPath}");
+            else if (add)
+            {
+                if (!folderMetadata.Ignore.Add(name)) Logger.Info($"The item '{name}' was already being ignored.");
+                else WriteMetadata(metadata, workingDirectory);
+                Logger.Message($"Ignoring item '{name}' on the path '{Path.GetRelativePath(workingDirectory, trackingPath)}'.");
+            }
         }
 
         private static IEnumerable<string> SplitPathIntoParts(string path)

@@ -11,7 +11,7 @@ namespace GoogleDrivePushCli
         {
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory, out workingDirectory);
-            var wasEdited = Pull(workingDirectory, metadata.Structure, confirm, metadata.Depth);
+            var wasEdited = Pull(workingDirectory, workingDirectory, metadata.Structure, confirm, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (confirm && wasEdited)
@@ -22,27 +22,29 @@ namespace GoogleDrivePushCli
             if (!wasEdited) Logger.Message("Nothing to pull.");
         }
 
-        private static bool Pull(string directory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int depth = 0)
+        private static bool Pull(string directory, string workingDirectory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int total, int depth = 0, int current = 0)
         {
             var wasEdited = false;
+            Logger.Info($"Checking to pull into local folder '{directory}'.", depth);
+            var relativePath = Path.GetRelativePath(workingDirectory, directory);
 
             // Handle files
             foreach (var pair in folderMetadata.Mappings)
             {
                 if (folderMetadata.Ignore.Contains(pair.Key))
                 {
-                    Logger.Info($"Skipping cached remote file '{pair.Key}'.");
+                    Logger.Info($"Skipping cached remote file '{Path.Join(relativePath, pair.Key)}'.", depth);
                     continue;
                 }
                 var filePath = Path.Join(directory, pair.Key);
                 if (File.Exists(filePath))
                 {
                     var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
-                    if (lastWriteTime >= pair.Value.Timestamp) continue;
+                    if (lastWriteTime <= pair.Value.Timestamp) continue;
 
                     // The file was updated
                     wasEdited = true;
-                    var message = $"Update local file '{pair.Key}'.";
+                    var message = $"Update local file '{Path.Join(relativePath, pair.Key)}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetItem(pair.Value.FileId);
@@ -52,15 +54,15 @@ namespace GoogleDrivePushCli
                             Timestamp = File.GetLastWriteTimeUtc(filePath),
                             FileId = file.Id
                         };
-                        Logger.Info(message);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
                 else
                 {
                     // The file was created
                     wasEdited = true;
-                    var message = $"Create local file '{pair.Key}'.";
+                    var message = $"Create local file '{Path.Join(relativePath, pair.Key)}'.";
                     if (confirm)
                     {
                         var file = DriveServiceWrapper.Instance.GetItem(pair.Value.FileId);
@@ -70,17 +72,18 @@ namespace GoogleDrivePushCli
                             Timestamp = File.GetLastWriteTimeUtc(filePath),
                             FileId = file.Id
                         };
-                        Logger.Info(message);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
+                Logger.Percent(current++, total);
             }
             foreach (string filePath in Directory.GetFiles(directory))
             {
                 var fileName = Path.GetFileName(filePath);
                 if (folderMetadata.Ignore.Contains(fileName))
                 {
-                    Logger.Info($"Skipping local file '{fileName}'.");
+                    Logger.Info($"Skipping local file '{Path.Join(relativePath, fileName)}'.", depth);
                     continue;
                 }
                 if (
@@ -90,13 +93,14 @@ namespace GoogleDrivePushCli
 
                 // The file was deleted
                 wasEdited = true;
-                var message = $"Delete local file '{fileName}'.";
+                var message = $"Delete local file '{Path.Join(relativePath, fileName)}'.";
                 if (confirm)
                 {
                     File.Delete(filePath);
-                    Logger.Info(message);
+                    Logger.Info(message, depth);
                 }
-                else Logger.ToDo(message);
+                else Logger.ToDo(message, depth);
+                Logger.Percent(current++, total);
             }
 
             // Handle folders
@@ -106,33 +110,33 @@ namespace GoogleDrivePushCli
                 {
                     if (folderMetadata.Ignore.Contains(pair.Key))
                     {
-                        Logger.Info($"Skipping cached remote folder '{pair.Key}'.");
+                        Logger.Info($"Skipping cached remote folder '{Path.Join(relativePath, pair.Key)}'.", depth);
                         continue;
                     }
 
                     // Make sure the directory exists
-                    Directory.CreateDirectory(pair.Key);
-                    wasEdited = Pull(Path.Join(directory, pair.Key), pair.Value, confirm, maxDepth, depth + 1) || wasEdited;
+                    Directory.CreateDirectory(Path.Join(directory, pair.Key));
+                    wasEdited = Pull(Path.Join(directory, pair.Key), workingDirectory, pair.Value, confirm, maxDepth, total, depth + 1, current) || wasEdited;
                 }
                 foreach (string folderPath in Directory.GetDirectories(directory))
                 {
                     var folderName = Path.GetFileName(folderPath);
                     if (folderMetadata.Ignore.Contains(folderName))
                     {
-                        Logger.Info($"Skipping local folder '{folderName}'.");
+                        Logger.Info($"Skipping local folder '{Path.Join(relativePath, folderName)}'.", depth);
                         continue;
                     }
                     if (folderMetadata.Nests.ContainsKey(folderName)) continue;
 
                     // The folder was deleted
                     wasEdited = true;
-                    var message = $"Delete local folder '{folderName}'.";
+                    var message = $"Delete local folder '{Path.Join(relativePath, folderName)}'.";
                     if (confirm)
                     {
-                        Directory.Delete(folderName, true);
-                        Logger.Info(message);
+                        Directory.Delete(folderPath, true);
+                        Logger.Info(message, depth);
                     }
-                    else Logger.ToDo(message);
+                    else Logger.ToDo(message, depth);
                 }
             }
             return wasEdited;

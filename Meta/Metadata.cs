@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,8 @@ namespace GoogleDrivePushCli.Meta
         public FolderMetadata Structure { get; set; } = new FolderMetadata();
         [JsonPropertyName("depth")]
         public int Depth { get; set; } = 3;
+
+        public int Total(string workingDirectory) => Math.Max(Count(), Count(workingDirectory));
 
         public int Count() => Count(Structure);
 

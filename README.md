@@ -28,7 +28,7 @@ Run `goop --help` for detailed usage information.
 Use `initialize` or `init` to link a Google Drive folder to a local directory.
 
 ```bash
-goop init --folderId 1aBcD2EfGh3IjKl4MnOpQrSt
+goop init 1aBcD2EfGh3IjKl4MnOpQrSt
 ```
 
 ### Fetch
@@ -42,6 +42,8 @@ Upload local changes to the linked Google Drive folder. Passing `--yes` will com
 ### Pull
 
 Download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
+
+
 
 ## Building
 

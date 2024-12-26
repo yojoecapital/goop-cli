@@ -122,7 +122,7 @@ namespace GoogleDrivePushCli
             }
             catch (Exception ex)
             {
-                throw new Exception($"Failed to create folder '{folderName}'. Error: {ex.Message}");
+                throw new Exception($"Failed to create folder '{folderName}'.", ex);
             }
         }
 
@@ -154,22 +154,27 @@ namespace GoogleDrivePushCli
         {
             try
             {
-                var request = service.Files.List();
-                request.Q = $"('{folderId}' in parents or id = '{folderId}') and trashed = false";
-                request.Fields = "files(id, name, mimeType, modifiedTime)";
-                var result = request.Execute();
+                // Fetch folder metadata (to confirm its existence and properties)
+                var folderRequest = service.Files.Get(folderId);
+                folderRequest.Fields = "id, name, mimeType, modifiedTime";
+                folder = folderRequest.Execute();
 
-                // Extract folder name
-                folder = result.Files.FirstOrDefault(
-                    f => f.Id == folderId && f.MimeType == folderMimeType
-                ) ?? throw new Exception($"A folder with ID '{folderId}' could not be found.");
+                // Validate that the ID corresponds to a folder
+                if (folder.MimeType != folderMimeType)
+                {
+                    throw new Exception($"The ID '{folderId}' does not correspond to a folder.");
+                }
 
-                // Return children excluding the folder itself
-                return result.Files.Where(f => f.Id != folderId);
+                // Fetch children of the folder
+                var listRequest = service.Files.List();
+                listRequest.Q = $"'{folderId}' in parents and trashed = false";
+                listRequest.Fields = "files(id, name, mimeType, modifiedTime)";
+                var result = listRequest.Execute();
+                return result.Files;
             }
-            catch
+            catch (Exception ex)
             {
-                throw new Exception($"Failed to fetch items for a folder with an ID of '{folderId}'.");
+                throw new Exception($"Failed to fetch items for folder with ID '{folderId}'.", ex);
             }
         }
 
@@ -184,9 +189,9 @@ namespace GoogleDrivePushCli
                 if (file.Trashed.HasValue && file.Trashed.Value) throw new Exception($"Remote item ('{fileId}') has been trashed.");
                 return file;
             }
-            catch
+            catch (Exception ex)
             {
-                throw new Exception($"Remote item ('{fileId}') does not exist.");
+                throw new Exception($"Remote item ('{fileId}') does not exist.", ex);
             }
         }
     }
