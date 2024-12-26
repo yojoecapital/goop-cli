@@ -25,7 +25,7 @@ namespace GoogleDrivePushCli
         private static bool Push(string directory, string workingDirectory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int total, int depth = 0, int current = 0)
         {
             var wasEdited = false;
-            Logger.Info($"Checking to push into remote folder '{Path.GetFileName(directory)}' ({folderMetadata.FolderId}).", depth);
+            Logger.Info($"Checking to push into remote folder '{Path.GetFileName(directory)}'.", depth);
             var relativePath = Path.GetRelativePath(workingDirectory, directory);
 
             // Handle files
