@@ -11,7 +11,7 @@ namespace GoogleDrivePushCli
         {
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory, out workingDirectory);
-            var wasEdited = Push(workingDirectory, workingDirectory, metadata.Structure, confirm, metadata.Depth, metadata.Total(workingDirectory));
+            (_, var wasEdited) = Push(workingDirectory, workingDirectory, metadata.Structure, confirm, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (confirm && wasEdited)
@@ -22,7 +22,16 @@ namespace GoogleDrivePushCli
             if (!wasEdited) Logger.Message("Nothing to push.");
         }
 
-        private static bool Push(string directory, string workingDirectory, FolderMetadata folderMetadata, bool confirm, int maxDepth, int total, int depth = 0, int current = 0)
+        private static (int current, bool wasEdited) Push(
+            string directory,
+            string workingDirectory,
+            FolderMetadata folderMetadata,
+            bool confirm,
+            int maxDepth,
+            int total,
+            int depth = 0,
+            int current = 0
+        )
         {
             var wasEdited = false;
             Logger.Info($"Checking to push into remote folder '{Path.GetFileName(directory)}'.", depth);
@@ -140,7 +149,8 @@ namespace GoogleDrivePushCli
                     var folderPath = Path.Join(directory, pair.Key);
                     if (Directory.Exists(folderPath))
                     {
-                        wasEdited = Push(Path.Join(directory, pair.Key), workingDirectory, pair.Value, confirm, maxDepth, total, depth + 1, current) || wasEdited;
+                        (current, var nestWasEdited) = Push(Path.Join(directory, pair.Key), workingDirectory, pair.Value, confirm, maxDepth, total, depth + 1, current);
+                        wasEdited |= nestWasEdited;
                     }
                     else
                     {
@@ -157,7 +167,7 @@ namespace GoogleDrivePushCli
                     }
                 }
             }
-            return wasEdited;
+            return (current, wasEdited);
         }
     }
 }

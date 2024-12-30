@@ -11,7 +11,7 @@ namespace GoogleDrivePushCli
         {
             InitializeProgram(verbose);
             var metadata = ReadMetadata(workingDirectory, out workingDirectory);
-            var wasEdited = Fetch(metadata.Structure, workingDirectory, metadata.Depth, metadata.Total(workingDirectory));
+            (_, var wasEdited) = Fetch(metadata.Structure, workingDirectory, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (wasEdited)
@@ -22,7 +22,14 @@ namespace GoogleDrivePushCli
             else Logger.Message("Up to date.");
         }
 
-        private static bool Fetch(FolderMetadata folderMetadata, string workingDirectory, int maxDepth, int total, int depth = 0, int current = 0)
+        private static (int current, bool wasEdited) Fetch(
+            FolderMetadata folderMetadata,
+            string workingDirectory,
+            int maxDepth,
+            int total,
+            int depth = 0,
+            int current = 0
+        )
         {
             var wasEdited = false;
             var remoteItems = DriveServiceWrapper.Instance.GetItems(folderMetadata.FolderId, out var folder);
@@ -99,9 +106,11 @@ namespace GoogleDrivePushCli
                 }
 
                 // Handle nests
-                wasEdited = folderMetadata.Nests.Select(nest => Fetch(nest.Value, workingDirectory, maxDepth, total, depth + 1, current))
-                    .Aggregate(false, (current, result) => current || result) // Don't use Any because it will short circuit
-                    || wasEdited;
+                foreach (var nest in folderMetadata.Nests)
+                {
+                    (current, var nestWasEdited) = Fetch(nest.Value, workingDirectory, maxDepth, total, depth + 1, current);
+                    wasEdited |= nestWasEdited;
+                }
             }
             else if (folderMetadata.Nests.Count > 0)
             {
@@ -110,7 +119,7 @@ namespace GoogleDrivePushCli
                 folderMetadata.Nests = [];
                 Logger.Info($"Trimming of nested folders in cache at depth {depth}");
             }
-            return wasEdited;
+            return (current, wasEdited);
         }
     }
 }
