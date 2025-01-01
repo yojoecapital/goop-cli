@@ -19,10 +19,18 @@ This program requires the **Google Drive API** to be enabled and to have the `cr
      - Linux: `/home/<user>/.config/goop`
      - Windows: `C:\Users\<user>\AppData\Roaming\goop`
 
+## Installation
+
+You can execute the following command to install or update `goop`.
+
+```bash
+curl -L -o /tmp/goop https://github.com/yojoecapital/goop/releases/latest/download/goop && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/
+```
+
 ## Usage
 
 ```bash
-goop --help # ❓
+goop --help
 ```
 
 ### Initialize
