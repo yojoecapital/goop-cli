@@ -15,7 +15,7 @@ namespace GoogleDrivePushCli
             if (confirm && wasEdited)
             {
                 WriteMetadata(metadata, workingDirectory);
-                Logger.Message("Pull complete");
+                Logger.Message("Pull complete.");
             }
             if (!wasEdited) Logger.Message("Nothing to pull.");
         }
