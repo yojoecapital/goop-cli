@@ -43,11 +43,11 @@ Use `fetch` to update the Google Drive cache in the metadata file. Both the push
 
 ### Push
 
-Upload local changes to the linked Google Drive folder. Passing `--yes` will commit the changes to Google Drive. Otherwise only the potential changes will be printed to the console.
+Use `push` to upload local changes to the linked Google Drive folder. Passing `--yes` will commit the changes to Google Drive. Otherwise only the potential changes will be printed to the console.
 
 ### Pull
 
-Download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
+Use `pull` to download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
 
 ### Ignore
 
