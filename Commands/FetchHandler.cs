@@ -17,7 +17,7 @@ namespace GoogleDrivePushCli.Commands
                 MetadataHelpers.WriteMetadata(metadata, workingDirectory);
                 Logger.Message("Fetch complete.");
             }
-            else Logger.Message("Up to date.");
+            else Logger.Message("Cache up to date.");
         }
 
         private static (int current, bool wasEdited) Fetch(
