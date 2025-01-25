@@ -1,20 +1,21 @@
 using System.IO;
-using GoogleDrivePushCli.Meta;
+using GoogleDrivePushCli.Data;
+using GoogleDrivePushCli.Utilities;
 
-namespace GoogleDrivePushCli
+namespace GoogleDrivePushCli.Commands
 {
-    internal partial class Program
+    public static class PullHandler
     {
-        private static void PullHandler(string workingDirectory, bool verbose, bool confirm)
+        public static void Handle(string workingDirectory, bool noFetch, bool confirm)
         {
-            InitializeProgram(verbose);
-            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
+            if (!noFetch) FetchHandler.Handle(workingDirectory);
+            var metadata = MetadataHelpers.ReadMetadata(workingDirectory, out workingDirectory);
             (_, var wasEdited) = Pull(workingDirectory, workingDirectory, metadata.Structure, confirm, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (confirm && wasEdited)
             {
-                WriteMetadata(metadata, workingDirectory);
+                MetadataHelpers.WriteMetadata(metadata, workingDirectory);
                 Logger.Message("Pull complete.");
             }
             if (!wasEdited) Logger.Message("Nothing to pull.");

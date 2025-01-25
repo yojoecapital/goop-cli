@@ -1,17 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using GoogleDrivePushCli.Utilities;
 
-namespace GoogleDrivePushCli
+namespace GoogleDrivePushCli.Commands
 {
-    internal partial class Program
+    public static class IgnoreHandler
     {
-        private static void IgnoreHandler(string workingDirectory, bool verbose, string ingorePath, bool add, bool remove)
+        public static void Handle(string workingDirectory, string ingorePath, bool add, bool remove)
         {
-            InitializeProgram(verbose);
             var name = Path.GetFileName(ingorePath);
             var path = Path.GetDirectoryName(ingorePath);
-            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
+            var metadata = MetadataHelpers.ReadMetadata(workingDirectory, out workingDirectory);
             var folderMetadata = metadata.Structure;
             var trackingPath = workingDirectory;
             if (!string.IsNullOrEmpty(path))
@@ -33,13 +33,13 @@ namespace GoogleDrivePushCli
             if (remove)
             {
                 if (!folderMetadata.Ignore.Remove(name)) Logger.Info($"The item '{name}' was not being ignored.");
-                else WriteMetadata(metadata, workingDirectory);
+                else MetadataHelpers.WriteMetadata(metadata, workingDirectory);
                 Logger.Message($"Not ignoring item '{name}' on the path '{Path.GetRelativePath(workingDirectory, trackingPath)}'.");
             }
             else if (add)
             {
                 if (!folderMetadata.Ignore.Add(name)) Logger.Info($"The item '{name}' was already being ignored.");
-                else WriteMetadata(metadata, workingDirectory);
+                else MetadataHelpers.WriteMetadata(metadata, workingDirectory);
                 Logger.Message($"Ignoring item '{name}' on the path '{Path.GetRelativePath(workingDirectory, trackingPath)}'.");
             }
         }
@@ -62,6 +62,5 @@ namespace GoogleDrivePushCli
                 path = Path.GetDirectoryName(path);
             }
         }
-
     }
 }

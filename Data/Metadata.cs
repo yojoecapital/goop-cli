@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-namespace GoogleDrivePushCli.Meta
+namespace GoogleDrivePushCli.Data
 {
     public class Metadata
     {

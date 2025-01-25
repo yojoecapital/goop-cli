@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleDrivePushCli.Meta
+namespace GoogleDrivePushCli.Data
 {
     [JsonSerializable(typeof(Metadata))]
     [JsonSerializable(typeof(FolderMetadata))]

@@ -1,14 +1,13 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using Google.Apis.Drive.v3;
-using GoogleDrivePushCli.Meta;
+using GoogleDrivePushCli.Data;
 
-namespace GoogleDrivePushCli
+namespace GoogleDrivePushCli.Utilities
 {
-    internal partial class Program
+    public static class MetadataHelpers
     {
-        private static string GetRootFolder(string workingDirectory)
+        public static string GetRootFolder(string workingDirectory)
         {
             try
             {
@@ -21,7 +20,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        private static Metadata ReadMetadata(string workingDirectory, out string updatedWorkingDirectory)
+        public static Metadata ReadMetadata(string workingDirectory, out string updatedWorkingDirectory)
         {
             var path = FindFileInParentDirectories(workingDirectory, Defaults.metadataFileName);
             updatedWorkingDirectory = Path.GetDirectoryName(path);
@@ -36,7 +35,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        private static void WriteMetadata(Metadata metadata, string workingDirectory)
+        public static void WriteMetadata(Metadata metadata, string workingDirectory)
         {
             var path = Path.GetFullPath(Path.Join(workingDirectory, Defaults.metadataFileName));
             try

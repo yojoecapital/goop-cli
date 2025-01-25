@@ -1,22 +1,20 @@
-using System;
-using System.IO;
 using System.Linq;
-using GoogleDrivePushCli.Meta;
+using GoogleDrivePushCli.Data;
+using GoogleDrivePushCli.Utilities;
 
-namespace GoogleDrivePushCli
+namespace GoogleDrivePushCli.Commands
 {
-    internal partial class Program
+    public static class FetchHandler
     {
-        private static void FetchHandler(string workingDirectory, bool verbose)
+        public static void Handle(string workingDirectory)
         {
-            InitializeProgram(verbose);
-            var metadata = ReadMetadata(workingDirectory, out workingDirectory);
+            var metadata = MetadataHelpers.ReadMetadata(workingDirectory, out workingDirectory);
             (_, var wasEdited) = Fetch(metadata.Structure, workingDirectory, metadata.Depth, metadata.Total(workingDirectory));
 
             // Update metadata
             if (wasEdited)
             {
-                WriteMetadata(metadata, workingDirectory);
+                MetadataHelpers.WriteMetadata(metadata, workingDirectory);
                 Logger.Message("Fetch complete.");
             }
             else Logger.Message("Up to date.");

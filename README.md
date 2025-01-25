@@ -24,7 +24,7 @@ This program requires the **Google Drive API** to be enabled and to have the `cr
 You can execute the following command to install or update `goop`.
 
 ```bash
-curl -L -o /tmp/goop https://github.com/yojoecapital/goop/releases/latest/download/goop && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/
+curl -L -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/
 ```
 
 ## Usage

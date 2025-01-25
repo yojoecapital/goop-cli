@@ -1,7 +1,7 @@
 using System;
 using System.Text.Json.Serialization;
 
-namespace GoogleDrivePushCli.Meta
+namespace GoogleDrivePushCli.Data
 {
     public class FileMetadata
     {

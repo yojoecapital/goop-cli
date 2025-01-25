@@ -1,16 +1,16 @@
 using System;
 using System.IO;
 using System.Linq;
-using GoogleDrivePushCli.Meta;
+using GoogleDrivePushCli.Data;
+using GoogleDrivePushCli.Utilities;
 
-namespace GoogleDrivePushCli
+namespace GoogleDrivePushCli.Commands
 {
-    internal partial class Program
+    public static class InitHandler
     {
-        private static void InitializeHandler(string workingDirectory, bool verbose, string folderId, int depth)
+        public static void Handle(string workingDirectory, string folderId, int depth)
         {
-            InitializeProgram(verbose);
-            var rootDirectory = GetRootFolder(workingDirectory);
+            var rootDirectory = MetadataHelpers.GetRootFolder(workingDirectory);
             if (rootDirectory != null) throw new Exception($"An existing metadata file at {rootDirectory} was found. Remove the '{Defaults.metadataFileName}' file or initialize elsewhere.");
             if (depth < 0) throw new Exception("Depth must be at least 0");
             Logger.Message("Creating metadata file...");
@@ -26,7 +26,7 @@ namespace GoogleDrivePushCli
             };
 
             // Write metadata
-            WriteMetadata(metadata, workingDirectory);
+            MetadataHelpers.WriteMetadata(metadata, workingDirectory);
             Logger.Message("Initialization complete. Ready to pull.");
         }
 

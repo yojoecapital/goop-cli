@@ -10,13 +10,15 @@ using Google.Apis.Util.Store;
 
 namespace GoogleDrivePushCli
 {
-    internal class DriveServiceWrapper
+    public class DriveServiceWrapper
     {
 
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
         private static DriveServiceWrapper instance;
         public static readonly string folderMimeType = "application/vnd.google-apps.folder";
+        private readonly UserCredential credential;
+
 
         public static DriveServiceWrapper Instance
         {
@@ -34,7 +36,6 @@ namespace GoogleDrivePushCli
             {
                 throw new Exception($"A credentials JSON could not be found at '{credentialsPath}'.");
             }
-            UserCredential credential;
 
             // Get permission and make token
             var tokensPath = Path.Join(Defaults.configurationPath, Defaults.tokensDirectory);
@@ -57,7 +58,7 @@ namespace GoogleDrivePushCli
             });
 
             // Test connection
-            if (Logger.verbose)
+            if (Logger.Verbose)
             {
                 var request = service.About.Get();
                 request.Fields = "user";
@@ -66,8 +67,20 @@ namespace GoogleDrivePushCli
             }
         }
 
+        private void RefreshTokenIfNeeded()
+        {
+            if (credential.Token.IsStale)
+            {
+                Logger.Info("Token expired, refreshing...");
+                var result = credential.RefreshTokenAsync(CancellationToken.None).Result;
+                if (result) Logger.Info("Token refreshed successfully.");
+                else throw new Exception("Token refresh failed. Try re-running the command");
+            }
+        }
+
         public Google.Apis.Drive.v3.Data.File UpdateFile(string fileId, string localFilePath, int depth)
         {
+            RefreshTokenIfNeeded();
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var body = service.Files.Get(fileId).Execute();
             body.Id = null;
@@ -86,6 +99,7 @@ namespace GoogleDrivePushCli
 
         public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath, int depth)
         {
+            RefreshTokenIfNeeded();
             var body = new Google.Apis.Drive.v3.Data.File()
             {
                 Name = Path.GetFileName(localFilePath),
@@ -105,6 +119,7 @@ namespace GoogleDrivePushCli
 
         public Google.Apis.Drive.v3.Data.File CreateFolder(string parentFolderId, string folderName, int depth)
         {
+            RefreshTokenIfNeeded();
             try
             {
                 var body = new Google.Apis.Drive.v3.Data.File()
@@ -127,6 +142,7 @@ namespace GoogleDrivePushCli
 
         public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file, int depth)
         {
+            RefreshTokenIfNeeded();
             var path = Path.Combine(workingDirectory, file.Name);
             using var stream = new FileStream(path, FileMode.Create);
             var request = service.Files.Get(file.Id);
@@ -140,6 +156,7 @@ namespace GoogleDrivePushCli
 
         public void MoveItemToTrash(string id, int depth)
         {
+            RefreshTokenIfNeeded();
             var body = new Google.Apis.Drive.v3.Data.File
             {
                 Trashed = true
@@ -149,26 +166,35 @@ namespace GoogleDrivePushCli
             Logger.Info($"Item ({id}) has been trashed successfully.", depth);
         }
 
+        private readonly Dictionary<string, Google.Apis.Drive.v3.Data.File> itemCache = [];
+        private readonly Dictionary<string, (IEnumerable<Google.Apis.Drive.v3.Data.File> files, Google.Apis.Drive.v3.Data.File folder)> folderCache = [];
+
+
         public IEnumerable<Google.Apis.Drive.v3.Data.File> GetItems(string folderId, out Google.Apis.Drive.v3.Data.File folder)
         {
+            RefreshTokenIfNeeded();
+            if (folderCache.TryGetValue(folderId, out var value))
+            {
+                var cachedResult = value;
+                folder = cachedResult.folder;
+                return cachedResult.files;
+            }
             try
             {
-                // Fetch folder metadata (to confirm its existence and properties)
                 var folderRequest = service.Files.Get(folderId);
                 folderRequest.Fields = "id, name, mimeType, modifiedTime";
                 folder = folderRequest.Execute();
-
-                // Validate that the ID corresponds to a folder
                 if (folder.MimeType != folderMimeType)
                 {
                     throw new Exception($"The ID '{folderId}' does not correspond to a folder.");
                 }
-
-                // Fetch children of the folder
                 var listRequest = service.Files.List();
                 listRequest.Q = $"'{folderId}' in parents and trashed = false";
                 listRequest.Fields = "files(id, name, mimeType, modifiedTime)";
                 var result = listRequest.Execute();
+
+                folderCache[folderId] = (result.Files, folder);
+
                 return result.Files;
             }
             catch (Exception ex)
@@ -179,13 +205,19 @@ namespace GoogleDrivePushCli
 
         public Google.Apis.Drive.v3.Data.File GetItem(string fileId)
         {
-            // Ensure folder exists in Google Drive
-            var request = service.Files.Get(fileId);
-            request.Fields = "id, name, mimeType, modifiedTime, trashed";
+            RefreshTokenIfNeeded();
+            if (itemCache.TryGetValue(fileId, out var value)) return value;
             try
             {
+                var request = service.Files.Get(fileId);
+                request.Fields = "id, name, mimeType, modifiedTime, trashed";
                 var file = request.Execute();
-                if (file.Trashed.HasValue && file.Trashed.Value) throw new Exception($"Remote item ('{fileId}') has been trashed.");
+                if (file.Trashed.HasValue && file.Trashed.Value)
+                {
+                    throw new Exception($"Remote item ('{fileId}') has been trashed.");
+                }
+                itemCache[fileId] = file;
+
                 return file;
             }
             catch (Exception ex)
