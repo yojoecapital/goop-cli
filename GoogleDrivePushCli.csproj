@@ -1,22 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>2.0.1</Version>
+    <Version>2.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyName>goop</AssemblyName>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <!-- Specify the platform (e.g., win-x64, linux-x64, osx-x64) -->
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-    <!-- Ensures all dependencies are included in the single file -->
     <SelfContained>true</SelfContained> 
-    <!-- This disables the generation of the .pdb file -->
     <DebugType>none</DebugType>
   </PropertyGroup>
 
 
   <ItemGroup>
-    <PackageReference Include="Glob" Version="1.1.9" />
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.68.0.3608" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
