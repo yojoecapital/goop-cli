@@ -11,5 +11,6 @@ namespace GoogleDrivePushCli
         public static readonly string metadataFileName = ".goop";
         public static readonly string ignoreListFileName = ".goopignore";
         public static readonly string tokensDirectory = "tokens";
+        public static readonly string cacheDirectory = "cache";
     }
 }

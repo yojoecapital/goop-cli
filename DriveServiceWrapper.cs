@@ -1,24 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
+using CacheManager.Core;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
 using Google.Apis.Util.Store;
+using GoogleDrivePushCli.Utilities;
+using RemoteItem = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli
 {
     public class DriveServiceWrapper
     {
-
+        public static readonly string folderMimeType = "application/vnd.google-apps.folder";
+        private readonly string driveRoot = "My Drive";
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
-        private static DriveServiceWrapper instance;
-        public static readonly string folderMimeType = "application/vnd.google-apps.folder";
         private readonly UserCredential credential;
-
+        private static DriveServiceWrapper instance;
 
         public static DriveServiceWrapper Instance
         {
@@ -34,13 +37,14 @@ namespace GoogleDrivePushCli
             var credentialsPath = Path.Join(Defaults.configurationPath, Defaults.credentialsFileName);
             if (!File.Exists(credentialsPath))
             {
-                throw new Exception($"A credentials JSON could not be found at '{credentialsPath}'.");
+                throw new Exception($"The credentials JSON could not be found at '{credentialsPath}'");
             }
 
             // Get permission and make token
             var tokensPath = Path.Join(Defaults.configurationPath, Defaults.tokensDirectory);
-            using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))
+            try
             {
+                using var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read);
                 credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
                     GoogleClientSecrets.FromStream(stream).Secrets,
                     driveScopes,
@@ -49,38 +53,69 @@ namespace GoogleDrivePushCli
                     new FileDataStore(tokensPath, true)
                 ).Result;
             }
+            catch (UnauthorizedAccessException)
+            {
+                throw new Exception($"Insufficient permissions");
+            }
+            catch (Google.GoogleApiException)
+            {
+                throw new Exception("Failed to authorize with Google API");
+            }
+            catch (Exception)
+            {
+                throw new Exception("Failed initialize Google Drive service");
+            }
+
+            // Try to refresh the token
+            bool result = true;
+            try
+            {
+                if (credential.Token.IsStale)
+                {
+                    ConsoleHelpers.Info("Token expired, refreshing...");
+                    result = credential.RefreshTokenAsync(CancellationToken.None).Result;
+                }
+            }
+            catch
+            {
+                throw new Exception("Failed refresh token");
+            }
+            if (result) ConsoleHelpers.Info("Token accepted.");
+            else throw new Exception();
 
             // Create the service
-            service = new DriveService(new BaseClientService.Initializer()
+            try
             {
-                HttpClientInitializer = credential,
-                ApplicationName = Defaults.applicationName,
-            });
+                service = new DriveService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = Defaults.applicationName,
+                });
+            }
+            catch
+            {
+                throw new Exception("Failed to initialize Google Drive service");
+            }
+            ConsoleHelpers.Info(this);
+        }
 
-            // Test connection
-            if (Logger.Verbose)
+        public override string ToString()
+        {
+            try
             {
                 var request = service.About.Get();
                 request.Fields = "user";
                 var about = request.Execute();
-                Logger.Info($"Established drive service for {about.User.EmailAddress}.");
+                return $"Established drive service for {about.User.EmailAddress}.";
             }
-        }
-
-        private void RefreshTokenIfNeeded()
-        {
-            if (credential.Token.IsStale)
+            catch
             {
-                Logger.Info("Token expired, refreshing...");
-                var result = credential.RefreshTokenAsync(CancellationToken.None).Result;
-                if (result) Logger.Info("Token refreshed successfully.");
-                else throw new Exception("Token refresh failed. Try re-running the command");
+                throw new Exception("Failed to query Google Drive");
             }
         }
 
-        public Google.Apis.Drive.v3.Data.File UpdateFile(string fileId, string localFilePath, int depth)
+        public RemoteItem UpdateFile(string fileId, string localFilePath)
         {
-            RefreshTokenIfNeeded();
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var body = service.Files.Get(fileId).Execute();
             body.Id = null;
@@ -90,17 +125,17 @@ namespace GoogleDrivePushCli
             request.Fields = "id, name, modifiedTime";
             request.ProgressChanged += progress =>
             {
-                if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
+                if (progress.Status == UploadStatus.Failed) throw new Exception();
             };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.", depth);
+            if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update file '{localFilePath}' ({fileId})");
+            ConsoleHelpers.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
             return request.ResponseBody;
         }
 
-        public Google.Apis.Drive.v3.Data.File CreateFile(string folderId, string localFilePath, int depth)
+        public RemoteItem UploadFile(string folderId, string localFilePath)
         {
-            RefreshTokenIfNeeded();
-            var body = new Google.Apis.Drive.v3.Data.File()
+            var body = new RemoteItem()
             {
                 Name = Path.GetFileName(localFilePath),
                 Parents = [folderId]
@@ -108,21 +143,17 @@ namespace GoogleDrivePushCli
             using var stream = new FileStream(localFilePath, FileMode.Open);
             var request = service.Files.Create(body, stream, "application/octet-stream");
             request.Fields = "id, name, modifiedTime";
-            request.ProgressChanged += progress =>
-            {
-                if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload the file. Status: {progress.Exception.Message}");
-            };
             var progress = request.Upload();
-            if (progress.Status == UploadStatus.Completed) Logger.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.", depth);
+            if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload file '{localFilePath}' into ({folderId})");
+            ConsoleHelpers.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
             return request.ResponseBody;
         }
 
-        public Google.Apis.Drive.v3.Data.File CreateFolder(string parentFolderId, string folderName, int depth)
+        public RemoteItem CreateFolder(string parentFolderId, string folderName)
         {
-            RefreshTokenIfNeeded();
             try
             {
-                var body = new Google.Apis.Drive.v3.Data.File()
+                var body = new RemoteItem()
                 {
                     Name = folderName,
                     MimeType = folderMimeType,
@@ -131,48 +162,75 @@ namespace GoogleDrivePushCli
                 var request = service.Files.Create(body);
                 request.Fields = "id, name";
                 var createdFolder = request.Execute();
-                Logger.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.", depth);
+                ConsoleHelpers.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.");
                 return createdFolder;
             }
-            catch (Exception ex)
+            catch
             {
-                throw new Exception($"Failed to create folder '{folderName}'.", ex);
+                throw new Exception($"Failed to create folder '{folderName}' in ({parentFolderId})");
             }
         }
 
-        public string DownloadFile(string workingDirectory, Google.Apis.Drive.v3.Data.File file, int depth)
+        public string DownloadFile(string workingDirectory, RemoteItem file)
         {
-            RefreshTokenIfNeeded();
             var path = Path.Combine(workingDirectory, file.Name);
-            using var stream = new FileStream(path, FileMode.Create);
-            var request = service.Files.Get(file.Id);
-            request.MediaDownloader.ProgressChanged += progress =>
+            try
             {
-                if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) Logger.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.", depth);
-            };
-            request.Download(stream);
-            return path;
+                using var stream = new FileStream(path, FileMode.Create);
+                var request = service.Files.Get(file.Id);
+                request.MediaDownloader.ProgressChanged += progress =>
+                {
+                    if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) ConsoleHelpers.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.");
+                };
+                request.Download(stream);
+                return path;
+            }
+            catch (IOException)
+            {
+                throw new Exception($"Failed to save downloaded file '{file.Name}' due to an IO error");
+            }
+            catch (Exception)
+            {
+                throw new Exception($"Failed to download '{file.Name}' into '{workingDirectory}'");
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        File.Delete(path);
+                    }
+                    catch (Exception)
+                    {
+                        ConsoleHelpers.Error($"Failed to clean up partial file '{path}'");
+                    }
+                }
+            }
         }
 
-        public void MoveItemToTrash(string id, int depth)
+        public void MoveItemToTrash(string id)
         {
-            RefreshTokenIfNeeded();
-            var body = new Google.Apis.Drive.v3.Data.File
+            try
             {
-                Trashed = true
-            };
-            var request = service.Files.Update(body, id);
-            request.Execute();
-            Logger.Info($"Item ({id}) has been trashed successfully.", depth);
+                var body = new RemoteItem
+                {
+                    Trashed = true
+                };
+                var request = service.Files.Update(body, id);
+                request.Execute();
+                ConsoleHelpers.Info($"Item ({id}) has been trashed successfully.");
+            }
+            catch
+            {
+                throw new Exception($"Failed to trash item with ID ({id})");
+            }
         }
 
-        private readonly Dictionary<string, Google.Apis.Drive.v3.Data.File> itemCache = [];
-        private readonly Dictionary<string, (IEnumerable<Google.Apis.Drive.v3.Data.File> files, Google.Apis.Drive.v3.Data.File folder)> folderCache = [];
+        private readonly Dictionary<string, (IEnumerable<RemoteItem> files, RemoteItem folder)> folderCache = [];
 
-
-        public IEnumerable<Google.Apis.Drive.v3.Data.File> GetItems(string folderId, out Google.Apis.Drive.v3.Data.File folder)
+        public IEnumerable<RemoteItem> GetItems(string folderId, out RemoteItem folder)
         {
-            RefreshTokenIfNeeded();
             if (folderCache.TryGetValue(folderId, out var value))
             {
                 var cachedResult = value;
@@ -181,49 +239,75 @@ namespace GoogleDrivePushCli
             }
             try
             {
-                var folderRequest = service.Files.Get(folderId);
-                folderRequest.Fields = "id, name, mimeType, modifiedTime";
-                folder = folderRequest.Execute();
-                if (folder.MimeType != folderMimeType)
-                {
-                    throw new Exception($"The ID '{folderId}' does not correspond to a folder.");
-                }
-                var listRequest = service.Files.List();
-                listRequest.Q = $"'{folderId}' in parents and trashed = false";
-                listRequest.Fields = "files(id, name, mimeType, modifiedTime)";
-                var result = listRequest.Execute();
-
-                folderCache[folderId] = (result.Files, folder);
-
-                return result.Files;
+                folder = GetItem(folderId);
             }
-            catch (Exception ex)
+            catch
             {
-                throw new Exception($"Failed to fetch items for folder with ID '{folderId}'.", ex);
+                throw new Exception($"Failed to fetch folder with ID ({folderId}).");
             }
-        }
-
-        public Google.Apis.Drive.v3.Data.File GetItem(string fileId)
-        {
-            RefreshTokenIfNeeded();
-            if (itemCache.TryGetValue(fileId, out var value)) return value;
+            if (!IsFolder(folder))
+            {
+                throw new Exception($"The ID ({folderId}) does not correspond to a folder.");
+            }
             try
             {
-                var request = service.Files.Get(fileId);
-                request.Fields = "id, name, mimeType, modifiedTime, trashed";
-                var file = request.Execute();
-                if (file.Trashed.HasValue && file.Trashed.Value)
-                {
-                    throw new Exception($"Remote item ('{fileId}') has been trashed.");
-                }
-                itemCache[fileId] = file;
-
-                return file;
+                var listRequest = service.Files.List();
+                listRequest.Q = $"'{folderId}' in parents and trashed = false";
+                listRequest.Fields = "files(id, name, mimeType, modifiedTime, size)";
+                var result = listRequest.Execute();
+                folderCache[folderId] = (result.Files, folder);
+                return result.Files;
             }
-            catch (Exception ex)
+            catch
             {
-                throw new Exception($"Remote item ('{fileId}') does not exist.", ex);
+                throw new Exception($"Failed to fetch items for folder with ID ({folderId})");
             }
         }
+
+        private readonly Dictionary<string, RemoteItem> itemCache = [];
+
+        public RemoteItem GetItem(string id)
+        {
+            if (itemCache.TryGetValue(id, out var item)) return item;
+            try
+            {
+                var request = service.Files.Get(id);
+                request.Fields = "id, name, mimeType, modifiedTime, size, trashed";
+                item = request.Execute();
+            }
+            catch
+            {
+                throw new Exception($"Failed to fetch item with ID ({id}).");
+            }
+            if (item.Trashed.HasValue && item.Trashed.Value)
+            {
+                throw new Exception($"Remote item ({id}) has been trashed");
+            }
+            itemCache[id] = item;
+            return item;
+        }
+
+        private readonly Dictionary<string, RemoteItem> parentCache = [];
+
+        public Stack<RemoteItem> GetItemsFromPath(string path)
+        {
+            var stack = new Stack<RemoteItem>();
+            if (path.StartsWith(driveRoot)) path = path.ReplaceFirst(driveRoot, "/");
+            else if (!path.StartsWith('/')) path = $"/{path}";
+            var parts = path.Split('/').Where(p => !string.IsNullOrEmpty(p));
+            string currentId = "root";
+            stack.Push(GetItem("root"));
+            foreach (var part in parts)
+            {
+                var items = GetItems(currentId, out var folder);
+                var match = items.FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
+                if (match == default) throw new Exception($"No item matched for '{part}' in path '{path}'");
+                currentId = match.Id;
+                stack.Push(match);
+            }
+            return stack;
+        }
+
+        public static bool IsFolder(RemoteItem item) => item.MimeType == folderMimeType;
     }
 }

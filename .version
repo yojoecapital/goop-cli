@@ -1,2 +1,2 @@
-VERSION="2.2.0"
+VERSION="3.0.0"
 FILES="bin/Release/net8.0/linux-x64/publish/goop,bin/Release/net8.0/win-x64/publish/goop.exe"

@@ -9,6 +9,8 @@ namespace GoogleDrivePushCli.Data
         public DateTime Timestamp { get; set; }
 
         [JsonPropertyName("fileId")]
-        public string FileId { get; set; } = string.Empty;
+        public string FileId { get; set; }
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
     }
 }
