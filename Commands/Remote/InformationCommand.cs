@@ -30,7 +30,7 @@ namespace GoogleDrivePushCli.Commands.Remote
             File item;
             if (isInteractive)
             {
-                item = NavigationHelper.Navigate("Select an item:", path, "Select this");
+                item = NavigationHelper.Navigate(path)?.Peek();
                 if (item == null) return;
             }
             else item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();

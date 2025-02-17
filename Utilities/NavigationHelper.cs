@@ -6,13 +6,43 @@ using Spectre.Console;
 
 namespace GoogleDrivePushCli.Utilities
 {
+
     public static class NavigationHelper
     {
+        public struct Configuration
+        {
+            public string prompt;
+            public string selectThisText;
+            public string filterOnMimeType;
+
+            public Configuration()
+            {
+                prompt = "Select an itme:";
+                selectThisText = "Select this";
+                filterOnMimeType = null;
+            }
+
+            public Configuration(string prompt, string selectThisText, string filterOnMimeType)
+            {
+                this.prompt = prompt;
+                this.selectThisText = selectThisText;
+                this.filterOnMimeType = filterOnMimeType;
+            }
+
+            public Configuration(string prompt, string selectThisText)
+            {
+                this.prompt = prompt;
+                this.selectThisText = selectThisText;
+            }
+        }
+
+
         private enum ActionType
         {
             GoUp,
-            Select,
-            Enter,
+            File,
+            SelectThis,
+            Folder,
             Cancel
         }
 
@@ -28,12 +58,12 @@ namespace GoogleDrivePushCli.Utilities
                 Item = item;
                 if (DriveServiceWrapper.IsFolder(item))
                 {
-                    Action = ActionType.Enter;
+                    Action = ActionType.Folder;
                     Display = $"[[+]] {item.Name.EscapeMarkup()}";
                 }
                 else
                 {
-                    Action = ActionType.Select;
+                    Action = ActionType.File;
                     Display = $"[[-]] {item.Name.EscapeMarkup()}";
                 }
             }
@@ -54,29 +84,36 @@ namespace GoogleDrivePushCli.Utilities
                 Display = "[red][[X]] Cancel[/]"
             };
 
-            public static NavigationChoice Select(File item, string selectThis) => new()
+            public static NavigationChoice SelectThis(File item, string selectThis) => new()
             {
                 Item = item,
-                Action = ActionType.Select,
+                Action = ActionType.SelectThis,
                 Display = $"[[-]] {selectThis}",
             };
         }
-        public static File Navigate(string title, string path, string selectThis)
+
+        public static string GetPathFromStack(Stack<File> stack) => string.Join('/', stack.Select(item => item.Name).Reverse());
+
+        public static Stack<File> Navigate(string path, Configuration? configuration = null)
         {
             var history = DriveServiceWrapper.Instance.GetItemsFromPath(path);
             if (history.Count == 0) throw new Exception("Nothing to navigate");
+            if (!configuration.HasValue) configuration = new();
             while (true)
             {
                 var currentRow = Console.CursorTop;
                 var choices = new List<NavigationChoice>();
                 if (history.Count > 1) choices.Add(NavigationChoice.goUp);
-                choices.Add(NavigationChoice.Select(history.Peek(), selectThis));
-                choices.AddRange(DriveServiceWrapper.Instance.GetItems(history.Peek().Id, out var _).Select(item => new NavigationChoice(item)));
+                choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.Value.selectThisText));
+                IEnumerable<File> items = DriveServiceWrapper.Instance.GetItems(history.Peek().Id, out var _);
+                if (configuration.Value.filterOnMimeType != null) items = items.Where(item => item.MimeType == configuration.Value.filterOnMimeType);
+                choices.AddRange(items.Select(item => new NavigationChoice(item)));
                 choices.Add(NavigationChoice.cancel);
-                var currentPath = string.Join('/', history.Select(item => item.Name));
+                var currentPath = GetPathFromStack(history);
                 var prompt = new SelectionPrompt<NavigationChoice>()
-                    .Title($"{title.EscapeMarkup()} [[[yellow]{currentPath.EscapeMarkup()}[/]]]")
+                    .Title($"{configuration.Value.prompt.EscapeMarkup()} [[[yellow]{currentPath.EscapeMarkup()}[/]]]")
                     .PageSize(10)
+                    .WrapAround()
                     .AddChoices(choices);
                 var choice = AnsiConsole.Prompt(prompt);
                 switch (choice.Action)
@@ -86,11 +123,14 @@ namespace GoogleDrivePushCli.Utilities
                         break;
                     case ActionType.Cancel:
                         return null;
-                    case ActionType.Enter:
+                    case ActionType.Folder:
                         history.Push(choice.Item);
                         break;
-                    case ActionType.Select:
-                        return choice.Item;
+                    case ActionType.File:
+                        history.Push(choice.Item);
+                        return history;
+                    case ActionType.SelectThis:
+                        return history;
                 }
                 ConsoleHelpers.Clear(currentRow);
             }

@@ -23,7 +23,8 @@ namespace GoogleDrivePushCli
             var rootCommand = new RootCommand($"The {Defaults.applicationName} is a simple tool for syncing files between a local directory and Google Drive.")
             {
                 new InformationCommand(),
-                new ListCommand()
+                new ListCommand(),
+                new MoveCommand()
             };
             rootCommand.AddGlobalOption(verboseOption);
 

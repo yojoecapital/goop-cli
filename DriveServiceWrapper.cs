@@ -227,6 +227,28 @@ namespace GoogleDrivePushCli
             }
         }
 
+        public RemoteItem MoveItem(string itemId, string folderId)
+        {
+            if (!IsFolder(GetItem(folderId)))
+            {
+                throw new Exception($"The ID ({folderId}) does not correspond to a folder");
+            }
+            try
+            {
+                var request = service.Files.Update(null, itemId);
+                request.AddParents = folderId;
+                request.Fields = "id, name, parents";
+                var updatedItemResponse = request.Execute();
+                ConsoleHelpers.Info($"Item ({itemId}) moved to folder ({folderId}).");
+                return updatedItemResponse;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw new Exception($"Failed to move item ({itemId}) to folder ({folderId})");
+            }
+        }
+
         private readonly Dictionary<string, (IEnumerable<RemoteItem> files, RemoteItem folder)> folderCache = [];
 
         public IEnumerable<RemoteItem> GetItems(string folderId, out RemoteItem folder)
@@ -243,11 +265,11 @@ namespace GoogleDrivePushCli
             }
             catch
             {
-                throw new Exception($"Failed to fetch folder with ID ({folderId}).");
+                throw new Exception($"Failed to fetch folder with ID ({folderId})");
             }
             if (!IsFolder(folder))
             {
-                throw new Exception($"The ID ({folderId}) does not correspond to a folder.");
+                throw new Exception($"The ID ({folderId}) does not correspond to a folder");
             }
             try
             {
@@ -265,6 +287,8 @@ namespace GoogleDrivePushCli
         }
 
         private readonly Dictionary<string, RemoteItem> itemCache = [];
+
+        public bool IsRoot(RemoteItem item) => item.Id == GetItem("root").Id;
 
         public RemoteItem GetItem(string id)
         {
