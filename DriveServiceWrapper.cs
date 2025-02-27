@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using CacheManager.Core;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
 using Google.Apis.Util.Store;
+using GoogleDrivePushCli.Data.Models;
 using GoogleDrivePushCli.Utilities;
-using RemoteItem = Google.Apis.Drive.v3.Data.File;
+using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli
 {
@@ -34,23 +34,21 @@ namespace GoogleDrivePushCli
 
         private DriveServiceWrapper()
         {
-            var credentialsPath = Path.Join(Defaults.configurationPath, Defaults.credentialsFileName);
-            if (!File.Exists(credentialsPath))
+            if (!File.Exists(Defaults.credentialsPath))
             {
-                throw new Exception($"The credentials JSON could not be found at '{credentialsPath}'");
+                throw new Exception($"The credentials JSON could not be found at '{Defaults.credentialsPath}'");
             }
 
             // Get permission and make token
-            var tokensPath = Path.Join(Defaults.configurationPath, Defaults.tokensDirectory);
             try
             {
-                using var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read);
+                using var stream = new FileStream(Defaults.credentialsPath, FileMode.Open, FileAccess.Read);
                 credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
                     GoogleClientSecrets.FromStream(stream).Secrets,
                     driveScopes,
                     "user",
                     CancellationToken.None,
-                    new FileDataStore(tokensPath, true)
+                    new FileDataStore(Defaults.tokensPath, true)
                 ).Result;
             }
             catch (UnauthorizedAccessException)
@@ -96,6 +94,7 @@ namespace GoogleDrivePushCli
             {
                 throw new Exception("Failed to initialize Google Drive service");
             }
+            RemoteFile.CreateTable();
             ConsoleHelpers.Info(this);
         }
 
@@ -114,7 +113,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public RemoteItem UpdateFile(string fileId, string localFilePath)
+        public GoogleDriveFile UpdateFile(string fileId, string localFilePath)
         {
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var body = service.Files.Get(fileId).Execute();
@@ -133,9 +132,9 @@ namespace GoogleDrivePushCli
             return request.ResponseBody;
         }
 
-        public RemoteItem UploadFile(string folderId, string localFilePath)
+        public GoogleDriveFile UploadFile(string folderId, string localFilePath)
         {
-            var body = new RemoteItem()
+            var body = new GoogleDriveFile()
             {
                 Name = Path.GetFileName(localFilePath),
                 Parents = [folderId]
@@ -149,11 +148,11 @@ namespace GoogleDrivePushCli
             return request.ResponseBody;
         }
 
-        public RemoteItem CreateFolder(string parentFolderId, string folderName)
+        public GoogleDriveFile CreateFolder(string parentFolderId, string folderName)
         {
             try
             {
-                var body = new RemoteItem()
+                var body = new GoogleDriveFile()
                 {
                     Name = folderName,
                     MimeType = folderMimeType,
@@ -171,9 +170,8 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public string DownloadFile(string workingDirectory, RemoteItem file)
+        public string DownloadFile(GoogleDriveFile file, string path)
         {
-            var path = Path.Combine(workingDirectory, file.Name);
             try
             {
                 using var stream = new FileStream(path, FileMode.Create);
@@ -191,7 +189,7 @@ namespace GoogleDrivePushCli
             }
             catch (Exception)
             {
-                throw new Exception($"Failed to download '{file.Name}' into '{workingDirectory}'");
+                throw new Exception($"Failed to download '{file.Name}' to '{path}'");
             }
             finally
             {
@@ -201,7 +199,7 @@ namespace GoogleDrivePushCli
                     {
                         File.Delete(path);
                     }
-                    catch (Exception)
+                    catch
                     {
                         ConsoleHelpers.Error($"Failed to clean up partial file '{path}'");
                     }
@@ -213,7 +211,7 @@ namespace GoogleDrivePushCli
         {
             try
             {
-                var body = new RemoteItem
+                var body = new GoogleDriveFile
                 {
                     Trashed = true
                 };
@@ -227,7 +225,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public RemoteItem MoveItem(string itemId, string folderId)
+        public GoogleDriveFile MoveItem(string itemId, string folderId)
         {
             if (!IsFolder(GetItem(folderId)))
             {
@@ -249,10 +247,13 @@ namespace GoogleDrivePushCli
             }
         }
 
-        private readonly Dictionary<string, (IEnumerable<RemoteItem> files, RemoteItem folder)> folderCache = [];
-
-        public IEnumerable<RemoteItem> GetItems(string folderId, out RemoteItem folder)
+        public IEnumerable<RemoteFile> GetItems(string folderId, out RemoteFile folder)
         {
+            folder = GetItem(folderId);
+            if (!IsFolder(folder)) throw new Exception($"The ID ({folderId}) does not correspond to a folder");
+            var remoteFiles = RemoteChild.SelectByParent(folderId).ToList();
+            if (remoteFiles.Count > 0 && remoteFiles[0])
+                if (remoteFiles != null && remoteFiles.Count > 0) return remoteFiles;
             if (folderCache.TryGetValue(folderId, out var value))
             {
                 var cachedResult = value;
@@ -311,8 +312,6 @@ namespace GoogleDrivePushCli
             return item;
         }
 
-        private readonly Dictionary<string, RemoteItem> parentCache = [];
-
         public Stack<RemoteItem> GetItemsFromPath(string path)
         {
             var stack = new Stack<RemoteItem>();
@@ -332,6 +331,7 @@ namespace GoogleDrivePushCli
             return stack;
         }
 
-        public static bool IsFolder(RemoteItem item) => item.MimeType == folderMimeType;
+        public static bool IsFolder(GoogleDriveFile item) => item.MimeType == folderMimeType;
+        public static bool IsFolder(RemoteFile item) => item.MimeType == folderMimeType;
     }
 }

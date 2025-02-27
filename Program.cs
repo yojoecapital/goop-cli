@@ -5,10 +5,8 @@ using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.IO;
 using System.Threading.Tasks;
-using CacheManager.Core;
 using GoogleDrivePushCli.Commands.Remote;
 using GoogleDrivePushCli.Utilities;
-using Microsoft.VisualBasic;
 
 namespace GoogleDrivePushCli
 {

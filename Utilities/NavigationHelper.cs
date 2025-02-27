@@ -21,19 +21,6 @@ namespace GoogleDrivePushCli.Utilities
                 selectThisText = "Select this";
                 filterOnMimeType = null;
             }
-
-            public Configuration(string prompt, string selectThisText, string filterOnMimeType)
-            {
-                this.prompt = prompt;
-                this.selectThisText = selectThisText;
-                this.filterOnMimeType = filterOnMimeType;
-            }
-
-            public Configuration(string prompt, string selectThisText)
-            {
-                this.prompt = prompt;
-                this.selectThisText = selectThisText;
-            }
         }
 
 
