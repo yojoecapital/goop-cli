@@ -160,6 +160,7 @@ namespace GoogleDrivePushCli
             var progress = request.Upload();
             if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload file '{localFilePath}' into ({folderId})");
             ConsoleHelpers.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
+            ClearCacheByItemId(folderId);
             return request.ResponseBody;
         }
 
@@ -182,6 +183,10 @@ namespace GoogleDrivePushCli
             catch
             {
                 throw new Exception($"Failed to create folder '{folderName}' in ({parentFolderId})");
+            }
+            finally
+            {
+                ClearCacheByItemId(parentFolderId);
             }
         }
 
@@ -208,17 +213,7 @@ namespace GoogleDrivePushCli
             }
             finally
             {
-                if (File.Exists(path))
-                {
-                    try
-                    {
-                        File.Delete(path);
-                    }
-                    catch
-                    {
-                        ConsoleHelpers.Error($"Failed to clean up partial file '{path}'");
-                    }
-                }
+                if (File.Exists(path)) File.Delete(path);
             }
         }
 
@@ -233,24 +228,15 @@ namespace GoogleDrivePushCli
                 var request = service.Files.Update(body, id);
                 request.Execute();
                 ConsoleHelpers.Info($"Item ({id}) has been trashed successfully.");
-                if (CachedItem.DeleteById(id))
-                {
-                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (items).");
-                }
-                if (CachedItemInFolder.DeleteById(id))
-                {
-                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (items in folders).");
-                }
-                CachedItemInFolder.DeleteByFolderId(id);
-                if (CachedFolder.DeleteById(id))
-                {
-                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (folders).");
-                }
-                ClearTrashCache();
             }
             catch
             {
                 throw new Exception($"Failed to trash item with ID ({id})");
+            }
+            finally
+            {
+                ClearCacheByItemId(id);
+                ClearTrashCache();
             }
         }
 
@@ -273,6 +259,11 @@ namespace GoogleDrivePushCli
             {
                 Console.WriteLine(ex);
                 throw new Exception($"Failed to move item ({itemId}) to folder ({folderId})");
+            }
+            finally
+            {
+                ClearCacheByItemId(itemId);
+                ClearCacheByItemId(folderId);
             }
         }
 
@@ -352,6 +343,23 @@ namespace GoogleDrivePushCli
             if (CachedFolder.DeleteById(trashIdAlias))
             {
                 ConsoleHelpers.Info($"Cache cleared (trash).");
+            }
+        }
+
+        private static void ClearCacheByItemId(string id)
+        {
+            if (CachedItem.DeleteById(id))
+            {
+                ConsoleHelpers.Info($"Item ({id}) was removed from cache (items).");
+            }
+            if (CachedItemInFolder.DeleteById(id))
+            {
+                ConsoleHelpers.Info($"Item ({id}) was removed from cache (items in folders).");
+            }
+            CachedItemInFolder.DeleteByFolderId(id);
+            if (CachedFolder.DeleteById(id))
+            {
+                ConsoleHelpers.Info($"Item ({id}) was removed from cache (folders).");
             }
         }
 
