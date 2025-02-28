@@ -8,7 +8,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained> 
-    <DebugType>none</DebugType>
   </PropertyGroup>
 
 

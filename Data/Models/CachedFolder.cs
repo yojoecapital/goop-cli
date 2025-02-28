@@ -94,13 +94,13 @@ public class CachedFolder
         ConsoleHelpers.Info(command.CommandText);
 #endif
         command.ExecuteNonQuery();
-        ConsoleHelpers.Info("Cached folders cleared.");
+        ConsoleHelpers.Info("Cache cleared (folders).");
     }
 
 
     public bool IsExpired(long ttl)
     {
-        return DateTimeOffset.Now.ToUnixTimeSeconds() - Timestamp > ttl;
+        return DateTimeOffset.Now.ToUnixTimeMilliseconds() - Timestamp > ttl;
     }
 
     public bool IsExpired() => IsExpired(Defaults.ttl);

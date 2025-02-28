@@ -27,7 +27,7 @@ public class CacheTimestamp
             INSERT INTO {nameof(CacheTimestamp)} (Id, {nameof(Timestamp)}) 
             VALUES (1, @{nameof(Timestamp)});
         ";
-        command.Parameters.AddWithValue($"@{nameof(Timestamp)}", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        command.Parameters.AddWithValue($"@{nameof(Timestamp)}", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 #if DEBUG
         ConsoleHelpers.Info(command.CommandText);
 #endif
@@ -36,10 +36,10 @@ public class CacheTimestamp
 
     public static long Get()
     {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         using var command = ConnectionManager.Connection.CreateCommand();
         command.CommandText = @$"
-            UPDATE {nameof(CacheTimestamp)};
+            UPDATE {nameof(CacheTimestamp)}
             SET {nameof(Timestamp)} = @{nameof(Timestamp)};
         ";
         command.Parameters.AddWithValue($"@{nameof(Timestamp)}", timestamp);
@@ -67,7 +67,7 @@ public class CacheTimestamp
         using var reader = command.ExecuteReader();
         if (!reader.Read()) throw new Exception("Fatal! The cache timestamp could not be read");
         var cacheTimestamp = PopulateFrom(reader);
-        return DateTimeOffset.Now.ToUnixTimeSeconds() - cacheTimestamp.Timestamp > ttl;
+        return DateTimeOffset.Now.ToUnixTimeMilliseconds() - cacheTimestamp.Timestamp > ttl;
     }
 
     public static bool IsExpired() => IsExpired(Defaults.ttl);

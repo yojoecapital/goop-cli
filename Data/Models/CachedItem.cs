@@ -9,7 +9,7 @@ public class CachedItem : RemoteItem
 {
     public long Timestamp { get; set; }
 
-    private static readonly string propertiesString = $"{nameof(Id)}, {nameof(Name)}, {nameof(MimeType)}, {nameof(ModifiedTime)}, {nameof(Size)}, {nameof(Trashed)}, {nameof(Timestamp)}";
+    private static readonly string propertiesString = $"{nameof(Id)}, {nameof(Name)}, {nameof(MimeType)}, {nameof(ModifiedTime)}, {nameof(Size)}, {nameof(Timestamp)}";
 
     private static CachedItem PopulateFrom(SqliteDataReader reader)
     {
@@ -18,10 +18,13 @@ public class CachedItem : RemoteItem
             Id = reader.GetString(0),
             Name = reader.GetString(1),
             MimeType = reader.GetString(2),
-            ModifiedTime = reader.GetDateTime(3),
-            Size = reader.GetInt64(4),
-            Trashed = reader.GetBoolean(5),
-            Timestamp = reader.GetInt64(6)
+            ModifiedTime = reader.IsDBNull(3) ?
+                null :
+                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(3)).UtcDateTime,
+            Size = reader.IsDBNull(4) ?
+                null :
+                reader.GetInt64(4),
+            Timestamp = reader.GetInt64(5)
         };
     }
 
@@ -33,9 +36,8 @@ public class CachedItem : RemoteItem
                 {nameof(Id)} VARCHAR PRIMARY KEY,
                 {nameof(Name)} VARCHAR NOT NULL,
                 {nameof(MimeType)} VARCHAR NOT NULL,
-                {nameof(ModifiedTime)} INTEGER NOT NULL,
+                {nameof(ModifiedTime)} INTEGER NULL,
                 {nameof(Size)} INTEGER NULL,
-                {nameof(Trashed)} INTEGER NOT NULL,
                 {nameof(Timestamp)} INTEGER NOT NULL
             );
         ";
@@ -52,15 +54,17 @@ public class CachedItem : RemoteItem
             INSERT INTO {nameof(CachedItem)} ({propertiesString}) 
             VALUES (
                 @{nameof(Id)}, @{nameof(Name)}, @{nameof(MimeType)}, @{nameof(ModifiedTime)}, 
-                @{nameof(Size)}, @{nameof(Trashed)}, @{nameof(Timestamp)}
+                @{nameof(Size)}, @{nameof(Timestamp)}
             );
         ";
         command.Parameters.AddWithValue($"@{nameof(Id)}", Id);
         command.Parameters.AddWithValue($"@{nameof(Name)}", Name);
         command.Parameters.AddWithValue($"@{nameof(MimeType)}", MimeType);
-        command.Parameters.AddWithValue($"@{nameof(ModifiedTime)}", new DateTimeOffset(ModifiedTime).ToUnixTimeSeconds());
-        command.Parameters.AddWithValue($"@{nameof(Size)}", Size);
-        command.Parameters.AddWithValue($"@{nameof(Trashed)}", Trashed ? 1 : 0);
+        command.Parameters.AddWithValue($"@{nameof(ModifiedTime)}", ModifiedTime.HasValue ?
+            new DateTimeOffset(ModifiedTime.Value).ToUnixTimeMilliseconds() :
+            DBNull.Value
+        );
+        command.Parameters.AddWithValue($"@{nameof(Size)}", Size == null ? DBNull.Value : Size);
         command.Parameters.AddWithValue($"@{nameof(Timestamp)}", Timestamp);
 #if DEBUG
         ConsoleHelpers.Info(command.CommandText);
@@ -111,12 +115,12 @@ public class CachedItem : RemoteItem
         ConsoleHelpers.Info(command.CommandText);
 #endif
         command.ExecuteNonQuery();
-        ConsoleHelpers.Info("Cached items cleared.");
+        ConsoleHelpers.Info("Cache cleared (items).");
     }
 
     public bool IsExpired(long ttl)
     {
-        return DateTimeOffset.Now.ToUnixTimeSeconds() - Timestamp > ttl;
+        return DateTimeOffset.Now.ToUnixTimeMilliseconds() - Timestamp > ttl;
     }
 
     public bool IsExpired() => IsExpired(Defaults.ttl);
@@ -128,9 +132,10 @@ public class CachedItem : RemoteItem
             Id = googleDriveFile.Id,
             Name = googleDriveFile.Name,
             MimeType = googleDriveFile.MimeType,
-            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime,
+            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.HasValue ?
+                googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime :
+                null,
             Size = googleDriveFile.Size,
-            Trashed = googleDriveFile.Trashed.Value,
             Timestamp = CacheTimestamp.Get()
         };
         cachedItem.Insert();

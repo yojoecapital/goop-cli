@@ -10,7 +10,7 @@ public class CachedItemInFolder : RemoteItem
 {
     public string FolderId { get; set; }
 
-    private static readonly string propertiesString = $"{nameof(Id)}, {nameof(Name)}, {nameof(MimeType)}, {nameof(ModifiedTime)}, {nameof(Size)}, {nameof(Trashed)}, {nameof(FolderId)}";
+    private static readonly string propertiesString = $"{nameof(Id)}, {nameof(Name)}, {nameof(MimeType)}, {nameof(ModifiedTime)}, {nameof(Size)}, {nameof(FolderId)}";
 
     private static CachedItemInFolder PopulateFrom(SqliteDataReader reader)
     {
@@ -19,10 +19,13 @@ public class CachedItemInFolder : RemoteItem
             Id = reader.GetString(0),
             Name = reader.GetString(1),
             MimeType = reader.GetString(2),
-            ModifiedTime = reader.GetDateTime(3),
-            Size = reader.GetInt64(4),
-            Trashed = reader.GetBoolean(5),
-            FolderId = reader.GetString(6)
+            ModifiedTime = reader.IsDBNull(3) ?
+                null :
+                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(3)).UtcDateTime,
+            Size = reader.IsDBNull(4) ?
+                null :
+                reader.GetInt64(4),
+            FolderId = reader.GetString(5)
         };
     }
 
@@ -34,12 +37,12 @@ public class CachedItemInFolder : RemoteItem
                 {nameof(Id)} VARCHAR PRIMARY KEY,
                 {nameof(Name)} VARCHAR NOT NULL,
                 {nameof(MimeType)} VARCHAR NOT NULL,
-                {nameof(ModifiedTime)} INTEGER NOT NULL,
+                {nameof(ModifiedTime)} INTEGER NULL,
                 {nameof(Size)} INTEGER NULL,
-                {nameof(Trashed)} INTEGER NOT NULL,
                 {nameof(FolderId)} INTEGER NOT NULL,
                 FOREIGN KEY({nameof(FolderId)}) REFERENCES {nameof(CachedFolder)}({nameof(CachedFolder.Id)})
             );
+            CREATE INDEX IF NOT EXISTS idx_{nameof(CachedItemInFolder)}_{nameof(FolderId)} ON {nameof(CachedItemInFolder)}({nameof(FolderId)});
         ";
 #if DEBUG
         ConsoleHelpers.Info(command.CommandText);
@@ -54,15 +57,17 @@ public class CachedItemInFolder : RemoteItem
             INSERT INTO {nameof(CachedItemInFolder)} ({propertiesString}) 
             VALUES (
                 @{nameof(Id)}, @{nameof(Name)}, @{nameof(MimeType)}, @{nameof(ModifiedTime)}, 
-                @{nameof(Size)}, @{nameof(Trashed)}, @{nameof(FolderId)}
+                @{nameof(Size)}, @{nameof(FolderId)}
             );
         ";
         command.Parameters.AddWithValue($"@{nameof(Id)}", Id);
         command.Parameters.AddWithValue($"@{nameof(Name)}", Name);
         command.Parameters.AddWithValue($"@{nameof(MimeType)}", MimeType);
-        command.Parameters.AddWithValue($"@{nameof(ModifiedTime)}", new DateTimeOffset(ModifiedTime).ToUnixTimeSeconds());
-        command.Parameters.AddWithValue($"@{nameof(Size)}", Size);
-        command.Parameters.AddWithValue($"@{nameof(Trashed)}", Trashed ? 1 : 0);
+        command.Parameters.AddWithValue($"@{nameof(ModifiedTime)}", ModifiedTime.HasValue ?
+            new DateTimeOffset(ModifiedTime.Value).ToUnixTimeMilliseconds() :
+            DBNull.Value
+        );
+        command.Parameters.AddWithValue($"@{nameof(Size)}", Size == null ? DBNull.Value : Size);
         command.Parameters.AddWithValue($"@{nameof(FolderId)}", FolderId);
 #if DEBUG
         ConsoleHelpers.Info(command.CommandText);
@@ -101,6 +106,21 @@ public class CachedItemInFolder : RemoteItem
         return rowsAffected;
     }
 
+    public static bool DeleteById(string id)
+    {
+        using var command = ConnectionManager.Connection.CreateCommand();
+        command.CommandText = @$"
+            DELETE FROM {nameof(CachedItemInFolder)} 
+            WHERE {nameof(Id)} = @{nameof(Id)};
+        ";
+        command.Parameters.AddWithValue($"@{nameof(Id)}", id);
+#if DEBUG
+        ConsoleHelpers.Info(command.CommandText);
+#endif
+        var rowsAffected = command.ExecuteNonQuery();
+        return rowsAffected > 0;
+    }
+
     public static void DeleteAll()
     {
         using var command = ConnectionManager.Connection.CreateCommand();
@@ -111,7 +131,7 @@ public class CachedItemInFolder : RemoteItem
         ConsoleHelpers.Info(command.CommandText);
 #endif
         command.ExecuteNonQuery();
-        ConsoleHelpers.Info("Cached items in folders cleared.");
+        ConsoleHelpers.Info("Cache cleared (items in folder).");
     }
 
     public static IEnumerable<CachedItemInFolder> InsertFrom(CachedFolder cachedFolder, IEnumerable<GoogleDriveFile> googleDriveFiles)
@@ -123,9 +143,10 @@ public class CachedItemInFolder : RemoteItem
                 Id = googleDriveFile.Id,
                 Name = googleDriveFile.Name,
                 MimeType = googleDriveFile.MimeType,
-                ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime,
+                ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.HasValue ?
+                    googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime :
+                    null,
                 Size = googleDriveFile.Size,
-                Trashed = googleDriveFile.Trashed.Value,
                 FolderId = cachedFolder.Id
             };
             cachedItem.Insert();

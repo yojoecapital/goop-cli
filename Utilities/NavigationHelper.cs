@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Google.Apis.Drive.v3.Data;
+using GoogleDrivePushCli.Data.Models;
 using Spectre.Console;
 
 namespace GoogleDrivePushCli.Utilities
@@ -38,12 +38,12 @@ namespace GoogleDrivePushCli.Utilities
 
             public ActionType Action { get; private set; }
             public string Display { get; private set; }
-            public File Item { get; private set; }
+            public RemoteItem Item { get; private set; }
 
-            public NavigationChoice(File item)
+            public NavigationChoice(RemoteItem item)
             {
                 Item = item;
-                if (DriveServiceWrapper.IsFolder(item))
+                if (item.IsFolder)
                 {
                     Action = ActionType.Folder;
                     Display = $"[[+]] {item.Name.EscapeMarkup()}";
@@ -71,7 +71,7 @@ namespace GoogleDrivePushCli.Utilities
                 Display = "[red][[X]] Cancel[/]"
             };
 
-            public static NavigationChoice SelectThis(File item, string selectThis) => new()
+            public static NavigationChoice SelectThis(RemoteItem item, string selectThis) => new()
             {
                 Item = item,
                 Action = ActionType.SelectThis,
@@ -79,12 +79,17 @@ namespace GoogleDrivePushCli.Utilities
             };
         }
 
-        public static string GetPathFromStack(Stack<File> stack) => string.Join('/', stack.Select(item => item.Name).Reverse());
+        public static string GetPathFromStack(Stack<RemoteItem> stack) => string.Join('/', stack.Select(item => item.Name).Reverse());
 
-        public static Stack<File> Navigate(string path, Configuration? configuration = null)
+        public static Stack<RemoteItem> Navigate(string path, Configuration? configuration = null)
         {
             var history = DriveServiceWrapper.Instance.GetItemsFromPath(path);
             if (history.Count == 0) throw new Exception("Nothing to navigate");
+            if (!history.Peek().IsFolder)
+            {
+                if (history.Count == 1) throw new Exception("Cannot navigate from a file");
+                history.Pop();
+            }
             if (!configuration.HasValue) configuration = new();
             while (true)
             {
@@ -92,7 +97,7 @@ namespace GoogleDrivePushCli.Utilities
                 var choices = new List<NavigationChoice>();
                 if (history.Count > 1) choices.Add(NavigationChoice.goUp);
                 choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.Value.selectThisText));
-                IEnumerable<File> items = DriveServiceWrapper.Instance.GetItems(history.Peek().Id, out var _);
+                IEnumerable<RemoteItem> items = DriveServiceWrapper.Instance.GetItems(history.Peek().Id, out var _);
                 if (configuration.Value.filterOnMimeType != null) items = items.Where(item => item.MimeType == configuration.Value.filterOnMimeType);
                 choices.AddRange(items.Select(item => new NavigationChoice(item)));
                 choices.Add(NavigationChoice.cancel);

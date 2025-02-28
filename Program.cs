@@ -13,7 +13,7 @@ namespace GoogleDrivePushCli
     public static partial class Program
     {
         public static readonly string version = "2.2.0";
-        private static readonly Option<bool> verboseOption = new(["--verbose", "-vb"], "Show [INFO] messages.");
+        private static readonly Option<bool> verboseOption = new("--verbose", "Show [INFO] messages.");
 
         [STAThread]
         public static int Main(string[] args)

@@ -1,5 +1,5 @@
 using System.CommandLine;
-using Google.Apis.Drive.v3.Data;
+using GoogleDrivePushCli.Data.Models;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
 
@@ -27,7 +27,7 @@ public class InformationCommand : Command
             isInteractive = true;
             path = "/";
         }
-        File item;
+        RemoteItem item;
         if (isInteractive)
         {
             item = NavigationHelper.Navigate(path)?.Peek();
@@ -40,7 +40,7 @@ public class InformationCommand : Command
         grid.AddRow(["[bold]ID[/]", $": {item.Id}"]);
         grid.AddRow(["[bold]Name[/]", $": {item.Name.EscapeMarkup()}"]);
         grid.AddRow(["[bold]MIME type[/]", $": {item.MimeType}"]);
-        grid.AddRow(["[bold]Modified time[/]", $": {item.ModifiedTimeRaw}"]);
+        grid.AddRow(["[bold]Modified time[/]", $": {item.ModifiedTime}"]);
         if (item.Size.HasValue) grid.AddRow(["[bold]Size[/]", $": {item.Size.Value.ToFileSize()}"]);
         AnsiConsole.Write(grid);
     }

@@ -12,6 +12,6 @@ namespace GoogleDrivePushCli
         public static readonly string credentialsPath = Path.Join(configurationPath, "credentials.json");
         public static readonly string tokensPath = Path.Join(configurationPath, "tokens");
         public static readonly string cacheDatabasePath = Path.Join(configurationPath, "cache.db");
-        public static readonly long ttl = 5 * 60;
+        public static readonly long ttl = 5 * 60 * 1000;
     }
 }

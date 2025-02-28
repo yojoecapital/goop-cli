@@ -17,7 +17,7 @@ public class ListCommand : Command
     private static void Handle(string path)
     {
         var item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
-        if (!DriveServiceWrapper.IsFolder(item))
+        if (!item.IsFolder)
         {
             Console.WriteLine(item.Name);
             return;

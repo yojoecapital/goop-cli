@@ -17,6 +17,7 @@ namespace GoogleDrivePushCli
     public class DriveServiceWrapper
     {
         public static readonly string folderMimeType = "application/vnd.google-apps.folder";
+        public static readonly string rootIdAlias = "root";
         private readonly string driveRoot = "My Drive";
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
@@ -231,6 +232,19 @@ namespace GoogleDrivePushCli
                 var request = service.Files.Update(body, id);
                 request.Execute();
                 ConsoleHelpers.Info($"Item ({id}) has been trashed successfully.");
+                if (CachedItem.DeleteById(id))
+                {
+                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (items).");
+                }
+                if (CachedItemInFolder.DeleteById(id))
+                {
+                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (items in folders).");
+                }
+                if (CachedFolder.DeleteById(id))
+                {
+                    CachedItemInFolder.DeleteByFolderId(id);
+                    ConsoleHelpers.Info($"Item ({id}) was removed from cache (folders).");
+                }
             }
             catch
             {
@@ -240,7 +254,7 @@ namespace GoogleDrivePushCli
 
         public GoogleDriveFile MoveItem(string itemId, string folderId)
         {
-            if (!IsFolder(GetItem(folderId)))
+            if (!GetItem(folderId).IsFolder)
             {
                 throw new Exception($"The ID ({folderId}) does not correspond to a folder");
             }
@@ -263,7 +277,7 @@ namespace GoogleDrivePushCli
         public List<RemoteItem> GetItems(string folderId, out RemoteItem folder)
         {
             folder = GetItem(folderId);
-            if (!IsFolder(folder)) throw new Exception($"The ID ({folderId}) does not correspond to a folder");
+            if (!folder.IsFolder) throw new Exception($"The ID ({folderId}) does not correspond to a folder");
             var cachedFolder = CachedFolder.SelectById(folderId);
             if (cachedFolder != null)
             {
@@ -289,7 +303,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public bool IsRoot(RemoteItem item) => item.Id == GetItem("root").Id;
+        public bool IsRoot(RemoteItem item) => item.Id == GetItem(rootIdAlias).Id;
 
         public RemoteItem GetItem(string id)
         {
@@ -310,10 +324,13 @@ namespace GoogleDrivePushCli
             {
                 throw new Exception($"Failed to fetch item with ID ({id}).");
             }
-            if (googleDriveFile.Trashed.HasValue && googleDriveFile.Trashed.Value)
+            if (googleDriveFile.Trashed.Value)
             {
                 throw new Exception($"Remote item ({id}) has been trashed");
             }
+
+            // update the ID field here in case it is the root ID alias
+            googleDriveFile.Id = id;
             return CachedItem.InsertFrom(googleDriveFile);
         }
 
@@ -323,8 +340,8 @@ namespace GoogleDrivePushCli
             if (path.StartsWith(driveRoot)) path = path.ReplaceFirst(driveRoot, "/");
             else if (!path.StartsWith('/')) path = $"/{path}";
             var parts = path.Split('/').Where(p => !string.IsNullOrEmpty(p));
-            string currentId = "root";
-            stack.Push(GetItem("root"));
+            string currentId = rootIdAlias;
+            stack.Push(GetItem(rootIdAlias));
             foreach (var part in parts)
             {
                 var items = GetItems(currentId, out var folder);
@@ -335,8 +352,5 @@ namespace GoogleDrivePushCli
             }
             return stack;
         }
-
-        public static bool IsFolder(GoogleDriveFile item) => item.MimeType == folderMimeType;
-        public static bool IsFolder(RemoteItem item) => item.MimeType == folderMimeType;
     }
 }

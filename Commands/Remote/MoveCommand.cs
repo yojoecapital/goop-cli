@@ -1,6 +1,6 @@
 using System;
 using System.CommandLine;
-using Google.Apis.Drive.v3.Data;
+using GoogleDrivePushCli.Data.Models;
 using GoogleDrivePushCli.Utilities;
 
 namespace GoogleDrivePushCli.Commands.Remote;
@@ -27,7 +27,7 @@ public class MoveCommand : Command
 
     private static void Handle(string path, string folderPath, bool isInteractive)
     {
-        File item, folder;
+        RemoteItem item, folder;
         string defaultPath = "/";
         if (string.IsNullOrEmpty(path) || isInteractive)
         {
@@ -38,7 +38,7 @@ public class MoveCommand : Command
             });
             if (history == null) return;
             item = history.Peek();
-            if (!DriveServiceWrapper.IsFolder(history.Peek())) history.Pop();
+            if (!history.Peek().IsFolder) history.Pop();
             defaultPath = NavigationHelper.GetPathFromStack(history);
         }
         else item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
