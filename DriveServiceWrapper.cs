@@ -94,8 +94,21 @@ namespace GoogleDrivePushCli
             {
                 throw new Exception("Failed to initialize Google Drive service");
             }
-            RemoteFile.CreateTable();
             ConsoleHelpers.Info(this);
+            if (!File.Exists(Defaults.cacheDatabasePath))
+            {
+                CacheTimestamp.CreateTable();
+                CachedItem.CreateTable();
+                CachedFolder.CreateTable();
+                CachedItemInFolder.CreateTable();
+            }
+            else if (CacheTimestamp.IsExpired())
+            {
+                ConsoleHelpers.Info($"Cache TTL {Defaults.ttl} met.");
+                CachedItemInFolder.DeleteAll();
+                CachedFolder.DeleteAll();
+                CachedItem.DeleteAll();
+            }
         }
 
         public override string ToString()
@@ -247,30 +260,19 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public IEnumerable<RemoteFile> GetItems(string folderId, out RemoteFile folder)
+        public List<RemoteItem> GetItems(string folderId, out RemoteItem folder)
         {
             folder = GetItem(folderId);
             if (!IsFolder(folder)) throw new Exception($"The ID ({folderId}) does not correspond to a folder");
-            var remoteFiles = RemoteChild.SelectByParent(folderId).ToList();
-            if (remoteFiles.Count > 0 && remoteFiles[0])
-                if (remoteFiles != null && remoteFiles.Count > 0) return remoteFiles;
-            if (folderCache.TryGetValue(folderId, out var value))
+            var cachedFolder = CachedFolder.SelectById(folderId);
+            if (cachedFolder != null)
             {
-                var cachedResult = value;
-                folder = cachedResult.folder;
-                return cachedResult.files;
-            }
-            try
-            {
-                folder = GetItem(folderId);
-            }
-            catch
-            {
-                throw new Exception($"Failed to fetch folder with ID ({folderId})");
-            }
-            if (!IsFolder(folder))
-            {
-                throw new Exception($"The ID ({folderId}) does not correspond to a folder");
+                if (cachedFolder.IsExpired())
+                {
+                    CachedItemInFolder.DeleteByFolderId(folderId);
+                    CachedFolder.DeleteById(folderId);
+                }
+                else return [.. CachedItemInFolder.SelectByFolderId(folderId).Cast<RemoteItem>()];
             }
             try
             {
@@ -278,8 +280,8 @@ namespace GoogleDrivePushCli
                 listRequest.Q = $"'{folderId}' in parents and trashed = false";
                 listRequest.Fields = "files(id, name, mimeType, modifiedTime, size)";
                 var result = listRequest.Execute();
-                folderCache[folderId] = (result.Files, folder);
-                return result.Files;
+                cachedFolder = CachedFolder.InsertFrom(folder);
+                return [.. CachedItemInFolder.InsertFrom(cachedFolder, result.Files).Cast<RemoteItem>()];
             }
             catch
             {
@@ -287,29 +289,32 @@ namespace GoogleDrivePushCli
             }
         }
 
-        private readonly Dictionary<string, RemoteItem> itemCache = [];
-
         public bool IsRoot(RemoteItem item) => item.Id == GetItem("root").Id;
 
         public RemoteItem GetItem(string id)
         {
-            if (itemCache.TryGetValue(id, out var item)) return item;
+            var cachedItem = CachedItem.SelectById(id);
+            if (cachedItem != null)
+            {
+                if (!cachedItem.IsExpired()) return cachedItem;
+                else CachedItem.DeleteById(id);
+            }
+            GoogleDriveFile googleDriveFile;
             try
             {
                 var request = service.Files.Get(id);
                 request.Fields = "id, name, mimeType, modifiedTime, size, trashed";
-                item = request.Execute();
+                googleDriveFile = request.Execute();
             }
             catch
             {
                 throw new Exception($"Failed to fetch item with ID ({id}).");
             }
-            if (item.Trashed.HasValue && item.Trashed.Value)
+            if (googleDriveFile.Trashed.HasValue && googleDriveFile.Trashed.Value)
             {
                 throw new Exception($"Remote item ({id}) has been trashed");
             }
-            itemCache[id] = item;
-            return item;
+            return CachedItem.InsertFrom(googleDriveFile);
         }
 
         public Stack<RemoteItem> GetItemsFromPath(string path)
@@ -332,6 +337,6 @@ namespace GoogleDrivePushCli
         }
 
         public static bool IsFolder(GoogleDriveFile item) => item.MimeType == folderMimeType;
-        public static bool IsFolder(RemoteFile item) => item.MimeType == folderMimeType;
+        public static bool IsFolder(RemoteItem item) => item.MimeType == folderMimeType;
     }
 }
