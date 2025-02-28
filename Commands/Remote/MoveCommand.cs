@@ -10,19 +10,19 @@ public class MoveCommand : Command
     public MoveCommand() : base("move", "Reparent an item.")
     {
         AddAlias("mv");
-        var pathArgument = new Argument<string>("path", "The path of the remote item to move.")
-        {
-            Arity = ArgumentArity.ZeroOrOne
-        };
         var folderPathArgument = new Argument<string>("folder-path", "The path of the remote folder to move the item into.")
         {
             Arity = ArgumentArity.ZeroOrOne
         };
-        var interactiveOption = new Option<bool>(["--interactive", "-i"], "Open to the path and use an interactive prompt.");
-        AddArgument(pathArgument);
+        AddArgument(DefaultParameters.pathArgument);
         AddArgument(folderPathArgument);
-        AddOption(interactiveOption);
-        this.SetHandler(Handle, pathArgument, folderPathArgument, interactiveOption);
+        AddOption(DefaultParameters.interactiveOption);
+        this.SetHandler(
+            Handle,
+            DefaultParameters.pathArgument,
+            folderPathArgument,
+            DefaultParameters.interactiveOption
+        );
     }
 
     private static void Handle(string path, string folderPath, bool isInteractive)
@@ -31,7 +31,7 @@ public class MoveCommand : Command
         string defaultPath = "/";
         if (string.IsNullOrEmpty(path) || isInteractive)
         {
-            path ??= defaultPath;
+            if (string.IsNullOrEmpty(path)) path = defaultPath;
             var history = NavigationHelper.Navigate(path, new()
             {
                 selectThisText = "Move this"
@@ -45,7 +45,7 @@ public class MoveCommand : Command
         if (DriveServiceWrapper.Instance.IsRoot(item)) throw new Exception("Cannot move root folder");
         if (string.IsNullOrEmpty(folderPath) || isInteractive)
         {
-            folderPath ??= defaultPath;
+            if (string.IsNullOrEmpty(folderPath)) folderPath = defaultPath;
             folder = NavigationHelper.Navigate(
                 folderPath,
                 new()

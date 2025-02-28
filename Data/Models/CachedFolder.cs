@@ -105,11 +105,11 @@ public class CachedFolder
 
     public bool IsExpired() => IsExpired(Defaults.ttl);
 
-    public static CachedFolder InsertFrom(RemoteItem remoteFolder)
+    public static CachedFolder InsertFrom(string folderId)
     {
         var cachedFolder = new CachedFolder()
         {
-            Id = remoteFolder.Id,
+            Id = folderId,
             Timestamp = CacheTimestamp.Get()
         };
         cachedFolder.Insert();

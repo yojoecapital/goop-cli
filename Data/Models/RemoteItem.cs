@@ -10,4 +10,10 @@ public class RemoteItem
     public DateTime? ModifiedTime { get; set; }
     public long? Size { get; set; }
     public bool IsFolder => MimeType == DriveServiceWrapper.folderMimeType;
+
+    public override string ToString()
+    {
+        if (IsFolder) return $"{Name}/";
+        return Name;
+    }
 }

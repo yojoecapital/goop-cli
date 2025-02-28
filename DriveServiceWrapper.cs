@@ -17,7 +17,8 @@ namespace GoogleDrivePushCli
     public class DriveServiceWrapper
     {
         public static readonly string folderMimeType = "application/vnd.google-apps.folder";
-        public static readonly string rootIdAlias = "root";
+        private static readonly string rootIdAlias = "root";
+        private static readonly string trashIdAlias = "[TRASH]";
         private readonly string driveRoot = "My Drive";
         private readonly string[] driveScopes = [DriveService.Scope.Drive];
         private readonly DriveService service;
@@ -221,7 +222,7 @@ namespace GoogleDrivePushCli
             }
         }
 
-        public void MoveItemToTrash(string id)
+        public void TrashItem(string id)
         {
             try
             {
@@ -240,11 +241,12 @@ namespace GoogleDrivePushCli
                 {
                     ConsoleHelpers.Info($"Item ({id}) was removed from cache (items in folders).");
                 }
+                CachedItemInFolder.DeleteByFolderId(id);
                 if (CachedFolder.DeleteById(id))
                 {
-                    CachedItemInFolder.DeleteByFolderId(id);
                     ConsoleHelpers.Info($"Item ({id}) was removed from cache (folders).");
                 }
+                ClearTrashCache();
             }
             catch
             {
@@ -294,12 +296,62 @@ namespace GoogleDrivePushCli
                 listRequest.Q = $"'{folderId}' in parents and trashed = false";
                 listRequest.Fields = "files(id, name, mimeType, modifiedTime, size)";
                 var result = listRequest.Execute();
-                cachedFolder = CachedFolder.InsertFrom(folder);
+                cachedFolder = CachedFolder.InsertFrom(folder.Id);
                 return [.. CachedItemInFolder.InsertFrom(cachedFolder, result.Files).Cast<RemoteItem>()];
             }
             catch
             {
                 throw new Exception($"Failed to fetch items for folder with ID ({folderId})");
+            }
+        }
+
+        public List<RemoteItem> GetItemsInTrash()
+        {
+            var trashCache = CachedFolder.SelectById(trashIdAlias);
+            if (trashCache != null)
+            {
+                if (trashCache.IsExpired())
+                {
+                    CachedItemInFolder.DeleteByFolderId(trashIdAlias);
+                    CachedFolder.DeleteById(trashIdAlias);
+                }
+                else return [.. CachedItemInFolder.SelectByFolderId(trashIdAlias).Cast<RemoteItem>()];
+            }
+            try
+            {
+                var listRequest = service.Files.List();
+                listRequest.Q = $"trashed = true";
+                listRequest.Fields = "files(id, name, mimeType, modifiedTime, size)";
+                var result = listRequest.Execute();
+                trashCache = CachedFolder.InsertFrom(trashIdAlias);
+                return [.. CachedItemInFolder.InsertFrom(trashCache, result.Files).Cast<RemoteItem>()];
+            }
+            catch
+            {
+                throw new Exception($"Failed to fetch items in trash");
+            }
+        }
+
+        public void EmptyTrash()
+        {
+            try
+            {
+                var emptyTrashRequest = service.Files.EmptyTrash();
+                emptyTrashRequest.Execute();
+                ClearTrashCache();
+            }
+            catch
+            {
+                throw new Exception($"Failed to empty trash");
+            }
+        }
+
+        private static void ClearTrashCache()
+        {
+            CachedItemInFolder.DeleteByFolderId(trashIdAlias);
+            if (CachedFolder.DeleteById(trashIdAlias))
+            {
+                ConsoleHelpers.Info($"Cache cleared (trash).");
             }
         }
 

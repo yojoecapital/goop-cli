@@ -17,7 +17,7 @@ namespace GoogleDrivePushCli.Utilities
 
             public Configuration()
             {
-                prompt = "Select an itme:";
+                prompt = "Select an item:";
                 selectThisText = "Select this";
                 filterOnMimeType = null;
             }

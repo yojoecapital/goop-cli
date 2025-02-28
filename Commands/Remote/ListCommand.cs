@@ -11,7 +11,10 @@ public class ListCommand : Command
         var pathArgument = new Argument<string>("path", "The path of the remote folder.");
         pathArgument.SetDefaultValue("/");
         AddArgument(pathArgument);
-        this.SetHandler(Handle, pathArgument);
+        this.SetHandler(
+            Handle,
+            pathArgument
+        );
     }
 
     private static void Handle(string path)
@@ -19,12 +22,12 @@ public class ListCommand : Command
         var item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
         if (!item.IsFolder)
         {
-            Console.WriteLine(item.Name);
+            Console.WriteLine(item);
             return;
         }
         foreach (var child in DriveServiceWrapper.Instance.GetItems(item.Id, out var _))
         {
-            Console.WriteLine(child.Name);
+            Console.WriteLine(child);
         }
     }
 }

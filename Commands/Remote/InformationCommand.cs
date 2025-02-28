@@ -10,14 +10,13 @@ public class InformationCommand : Command
     public InformationCommand() : base("information", "Get information for a remote item.")
     {
         AddAlias("info");
-        var pathArgument = new Argument<string>("path", "The path of the item  to retrieve.")
-        {
-            Arity = ArgumentArity.ZeroOrOne
-        };
-        var interactiveOption = new Option<bool>(["--interactive", "-i"], "Open to the path and use an interactive prompt.");
-        AddArgument(pathArgument);
-        AddOption(interactiveOption);
-        this.SetHandler(Handle, pathArgument, interactiveOption);
+        AddArgument(DefaultParameters.pathArgument);
+        AddOption(DefaultParameters.interactiveOption);
+        this.SetHandler(
+            Handle,
+            DefaultParameters.pathArgument,
+            DefaultParameters.interactiveOption
+        );
     }
 
     private static void Handle(string path, bool isInteractive)
