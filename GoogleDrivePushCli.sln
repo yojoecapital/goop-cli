@@ -1,25 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.5.002.0
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GoogleDrivePushCli", "GoogleDrivePushCli.csproj", "{774CF31A-8EE6-4DB6-AF34-4951D1BCAC76}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoogleDrivePushCli", "GoogleDrivePushCli\GoogleDrivePushCli.csproj", "{82FD05F4-215F-419D-87F2-A6883BE9F145}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqliteSchemaRepository", "SqliteSchemaRepository\SqliteSchemaRepository.csproj", "{BFBAC363-960C-439E-9A2B-CAEE777B1679}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{774CF31A-8EE6-4DB6-AF34-4951D1BCAC76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{774CF31A-8EE6-4DB6-AF34-4951D1BCAC76}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{774CF31A-8EE6-4DB6-AF34-4951D1BCAC76}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{774CF31A-8EE6-4DB6-AF34-4951D1BCAC76}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {1B72730D-77A8-4591-86E7-224D4524D1E6}
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{82FD05F4-215F-419D-87F2-A6883BE9F145}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82FD05F4-215F-419D-87F2-A6883BE9F145}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82FD05F4-215F-419D-87F2-A6883BE9F145}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82FD05F4-215F-419D-87F2-A6883BE9F145}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BFBAC363-960C-439E-9A2B-CAEE777B1679}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFBAC363-960C-439E-9A2B-CAEE777B1679}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFBAC363-960C-439E-9A2B-CAEE777B1679}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFBAC363-960C-439E-9A2B-CAEE777B1679}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

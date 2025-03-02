@@ -10,7 +10,7 @@ using GoogleDrivePushCli.Utilities;
 
 namespace GoogleDrivePushCli
 {
-    public static partial class Program
+    public static class Program
     {
         public static readonly string version = "2.2.0";
         private static readonly Option<bool> verboseOption = new("--verbose", "Show [INFO] messages.");

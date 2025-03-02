@@ -13,8 +13,8 @@ public class CacheTimestampRepository(
 ) : Repository<CacheTimestamp>(
     new(
         nameof(CacheTimestamp),
-        new("Singleton", PropertyType.String),
-        [new(nameof(CacheTimestamp.Value), PropertyType.UtcDateTime, false)]
+        new("Singleton", PropertyType.String, _ => 1, (_, _) => { }),
+        [new(nameof(CacheTimestamp.Value), PropertyType.UtcDateTime)]
     ),
     connection
 )
@@ -32,7 +32,7 @@ public class CacheTimestampRepository(
 
     public bool IsExpired()
     {
-        var model = SelectByKey(CacheTimestamp.id);
+        var model = SelectByKey(1);
         return model.Value.IsExpired(configuration.Cache.Ttl);
     }
 }

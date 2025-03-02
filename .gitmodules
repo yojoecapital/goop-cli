@@ -1,0 +1,3 @@
+[submodule "SqliteSchemaRepository"]
+	path = SqliteSchemaRepository
+	url = https://github.com/yojoecapital/sqlite-schema-repository
