@@ -27,5 +27,12 @@ namespace GoogleDrivePushCli.Utilities
             }
             return $"{size:0.##} {units[unitIndex]}";
         }
+
+        public static DateTime ToUtcDateTime(this long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime;
+
+        public static bool IsExpired(this long ms, long ttl)
+        {
+            return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ms > ttl;
+        }
     }
 }
