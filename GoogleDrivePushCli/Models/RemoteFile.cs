@@ -12,11 +12,12 @@ public class RemoteFile
     public DateTime ModifiedTime { get; set; }
     public long Size { get; set; }
     public string FolderId { get; set; }
+    public bool Trashed { get; set; }
     public long Timestamp { get; set; }
 
     public override string ToString() => Name;
 
-    public static RemoteFile CreateFrom(GoogleDriveFile googleDriveFile, long timestamp)
+    public static RemoteFile CreateFrom(GoogleDriveFile googleDriveFile)
     {
         return new()
         {
@@ -25,8 +26,7 @@ public class RemoteFile
             MimeType = googleDriveFile.MimeType,
             ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime,
             Size = googleDriveFile.Size.Value,
-            FolderId = googleDriveFile.Parents.First(),
-            Timestamp = timestamp
+            FolderId = googleDriveFile.Parents.First()
         };
     }
 }

@@ -8,7 +8,8 @@ using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
 using Google.Apis.Util.Store;
-using GoogleDrivePushCli.Data.Models;
+using GoogleDrivePushCli.Models;
+using GoogleDrivePushCli.Repositories;
 using GoogleDrivePushCli.Utilities;
 using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
@@ -16,26 +17,17 @@ namespace GoogleDrivePushCli.Services;
 
 public class DriveServiceWrapper
 {
-    public static readonly string folderMimeType = "application/vnd.google-apps.folder";
-    private static readonly string rootIdAlias = "root";
-    private static readonly string trashIdAlias = "[TRASH]";
-    private readonly string driveRoot = "My Drive";
-    private readonly string defaultFields = "id, name, mimeType, modifiedTime, size";
-    private readonly string[] driveScopes = [DriveService.Scope.Drive];
     private readonly DriveService service;
     private readonly UserCredential credential;
-    private static DriveServiceWrapper instance;
+    private static readonly string folderMimeType = "application/vnd.google-apps.folder";
+    private static readonly string rootIdAlias = "root";
+    private static readonly string trashIdAlias = "[TRASH]";
+    private static readonly string driveRoot = "My Drive";
+    private static readonly string defaultFolderFields = "id, name, parents";
+    private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
+    private static readonly string[] driveScopes = [DriveService.Scope.Drive];
 
-    public static DriveServiceWrapper Instance
-    {
-        get
-        {
-            instance ??= new DriveServiceWrapper();
-            return instance;
-        }
-    }
-
-    private DriveServiceWrapper()
+    public DriveServiceWrapper()
     {
         if (!File.Exists(Defaults.credentialsPath))
         {
@@ -98,22 +90,6 @@ public class DriveServiceWrapper
             throw new Exception("Failed to initialize Google Drive service");
         }
         ConsoleHelpers.Info(this);
-
-        // Initialize cache
-        if (!File.Exists(Defaults.cacheDatabasePath))
-        {
-            CacheTimestamp.CreateTable();
-            CachedItem.CreateTable();
-            CachedFolder.CreateTable();
-            CachedItemInFolder.CreateTable();
-        }
-        else if (CacheTimestamp.IsExpired())
-        {
-            ConsoleHelpers.Info($"Cache TTL {ConfigurationManager.Configuration.Cache.Ttl} met.");
-            CachedItemInFolder.DeleteAll();
-            CachedFolder.DeleteAll();
-            CachedItem.DeleteAll();
-        }
     }
 
     public override string ToString()
@@ -131,44 +107,38 @@ public class DriveServiceWrapper
         }
     }
 
-    public RemoteItem UpdateRemoteFile(string fileId, string localFilePath)
+    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath)
     {
         using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
-        var body = service.Files.Get(fileId).Execute();
+        var body = service.Files.Get(remoteFileId).Execute();
         body.Id = null;
         body.Kind = null;
         body.Parents = null;
-        var request = service.Files.Update(body, fileId, fileStream, "application/octet-stream");
-        request.Fields = defaultFields;
-        request.ProgressChanged += progress =>
-        {
-            if (progress.Status == UploadStatus.Failed) throw new Exception();
-        };
+        var request = service.Files.Update(body, remoteFileId, fileStream, "application/octet-stream");
+        request.Fields = defaultFileFields;
         var progress = request.Upload();
-        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update file '{localFilePath}' ({fileId})");
-        ConsoleHelpers.Info($"File '{localFilePath}' ({fileId}) has been uploaded successfully.");
-        ClearCacheByItemId(fileId);
-        return CachedItem.InsertFrom(request.ResponseBody);
+        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
+        ConsoleHelpers.Info($"File '{localFilePath}' ({remoteFileId}) has been uploaded successfully.");
+        return RemoteFile.CreateFrom(request.ResponseBody);
     }
 
-    public RemoteItem UploadFile(string folderId, string localFilePath)
+    public RemoteFile UploadFile(string remoteFolderId, string localFilePath)
     {
         var body = new GoogleDriveFile()
         {
             Name = Path.GetFileName(localFilePath),
-            Parents = [folderId]
+            Parents = [remoteFolderId]
         };
         using var stream = new FileStream(localFilePath, FileMode.Open);
         var request = service.Files.Create(body, stream, "application/octet-stream");
-        request.Fields = defaultFields;
+        request.Fields = defaultFileFields;
         var progress = request.Upload();
-        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload file '{localFilePath}' into ({folderId})");
+        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
         ConsoleHelpers.Info($"File '{localFilePath}' ({request.ResponseBody.Id}) has been uploaded successfully.");
-        ClearCacheByItemId(folderId);
-        return CachedItem.InsertFrom(request.ResponseBody);
+        return RemoteFile.CreateFrom(request.ResponseBody);
     }
 
-    public void CreateFolder(string parentFolderId, string folderName)
+    public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
     {
         try
         {
@@ -176,44 +146,39 @@ public class DriveServiceWrapper
             {
                 Name = folderName,
                 MimeType = folderMimeType,
-                Parents = [parentFolderId]
+                Parents = [parentRemoteFolderId]
             };
             var request = service.Files.Create(body);
-            request.Fields = "id, name";
-            var createdFolder = request.Execute();
-            ConsoleHelpers.Info($"Folder '{folderName}' ({createdFolder.Id}) has been created successfully.");
-            CachedFolder.InsertFrom(createdFolder.Id);
+            request.Fields = defaultFolderFields;
+            var googleDriveFolder = request.Execute();
+            ConsoleHelpers.Info($"Folder '{folderName}' ({googleDriveFolder.Id}) has been created successfully.");
+            return RemoteFolder.CreateFrom(googleDriveFolder);
         }
         catch
         {
-            throw new Exception($"Failed to create folder '{folderName}' in ({parentFolderId})");
-        }
-        finally
-        {
-            ClearCacheByItemId(parentFolderId);
+            throw new Exception($"Failed to create new folder '{folderName}' in remote folder ({parentRemoteFolderId})");
         }
     }
 
-    public string DownloadFile(GoogleDriveFile file, string path)
+    public void DownloadFile(string remoteFileId, string path)
     {
         try
         {
             using var stream = new FileStream(path, FileMode.Create);
-            var request = service.Files.Get(file.Id);
+            var request = service.Files.Get(remoteFileId);
             request.MediaDownloader.ProgressChanged += progress =>
             {
                 if (progress.Status == Google.Apis.Download.DownloadStatus.Completed) ConsoleHelpers.Info($"File '{file.Name}' ({file.Id}) has been downloaded successfully.");
             };
             request.Download(stream);
-            return path;
         }
         catch (IOException)
         {
-            throw new Exception($"Failed to save downloaded file '{file.Name}' due to an IO error");
+            throw new Exception($"Failed to save downloaded remote file '({remoteFileId})' due to an IO error");
         }
         catch (Exception)
         {
-            throw new Exception($"Failed to download '{file.Name}' to '{path}'");
+            throw new Exception($"Failed to download remote file '({remoteFileId})' to '{path}'");
         }
         finally
         {
@@ -221,7 +186,7 @@ public class DriveServiceWrapper
         }
     }
 
-    public void TrashItem(string id)
+    public void TrashRemoteItem(string remoteItemId)
     {
         try
         {
@@ -229,49 +194,34 @@ public class DriveServiceWrapper
             {
                 Trashed = true
             };
-            var request = service.Files.Update(body, id);
+            var request = service.Files.Update(body, remoteItemId);
             request.Execute();
-            ConsoleHelpers.Info($"Item ({id}) has been trashed successfully.");
+            ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been trashed successfully.");
         }
         catch
         {
-            throw new Exception($"Failed to trash item with ID ({id})");
-        }
-        finally
-        {
-            ClearCacheByItemId(id);
-            ClearTrashCache();
+            throw new Exception($"Failed to trash remote item ({remoteItemId})");
         }
     }
 
-    public GoogleDriveFile MoveItem(string itemId, string folderId)
+    public void MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
-        if (!GetItem(folderId).IsFolder)
-        {
-            throw new Exception($"The ID ({folderId}) does not correspond to a folder");
-        }
         try
         {
-            var request = service.Files.Update(null, itemId);
-            request.AddParents = folderId;
-            request.Fields = defaultFields;
+            var request = service.Files.Update(null, remoteItemId);
+            request.AddParents = parentRemoteFolderId;
+            request.Fields = defaultFileFields;
             var updatedItemResponse = request.Execute();
-            ConsoleHelpers.Info($"Item ({itemId}) moved to folder ({folderId}).");
-            return updatedItemResponse;
+            ConsoleHelpers.Info($"Remote item ({remoteItemId}) moved into remote folder ({parentRemoteFolderId}).");
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            throw new Exception($"Failed to move item ({itemId}) to folder ({folderId})");
-        }
-        finally
-        {
-            ClearCacheByItemId(itemId);
-            ClearCacheByItemId(folderId);
+            throw new Exception($"Failed to move  remote item ({remoteItemId}) into remote folder ({parentRemoteFolderId})");
         }
     }
 
-    public List<RemoteItem> GetItems(string folderId, out RemoteItem folder)
+    public RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         folder = GetItem(folderId);
         if (!folder.IsFolder) throw new Exception($"The ID ({folderId}) does not correspond to a folder");
@@ -341,31 +291,6 @@ public class DriveServiceWrapper
         }
     }
 
-    private static void ClearTrashCache()
-    {
-        CachedItemInFolder.DeleteByFolderId(trashIdAlias);
-        if (CachedFolder.DeleteById(trashIdAlias))
-        {
-            ConsoleHelpers.Info($"Cache cleared (trash).");
-        }
-    }
-
-    private static void ClearCacheByItemId(string id)
-    {
-        if (CachedItem.DeleteById(id))
-        {
-            ConsoleHelpers.Info($"Item ({id}) was removed from cache (items).");
-        }
-        if (CachedItemInFolder.DeleteById(id))
-        {
-            ConsoleHelpers.Info($"Item ({id}) was removed from cache (items in folders).");
-        }
-        CachedItemInFolder.DeleteByFolderId(id);
-        if (CachedFolder.DeleteById(id))
-        {
-            ConsoleHelpers.Info($"Item ({id}) was removed from cache (folders).");
-        }
-    }
 
     public bool IsRoot(RemoteItem item) => item.Id == GetItem(rootIdAlias).Id;
 
