@@ -4,16 +4,11 @@ using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli.Models;
 
-public class RemoteFile
+public class RemoteFile : RemoteItem
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
     public string MimeType { get; set; }
     public DateTime ModifiedTime { get; set; }
     public long Size { get; set; }
-    public string FolderId { get; set; }
-    public bool Trashed { get; set; }
-    public long Timestamp { get; set; }
 
     public override string ToString() => Name;
 
