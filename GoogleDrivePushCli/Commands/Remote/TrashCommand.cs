@@ -63,7 +63,7 @@ public class TrashCommand : Command
         if (shouldList)
         {
             DataAccessManager.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
-            if (shouldEmpty) Console.BackgroundColor = ConsoleColor.Red;
+            if (shouldEmpty) Console.ForegroundColor = ConsoleColor.Red;
             foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
             foreach (var remoteFolder in remoteFolders) Console.WriteLine(remoteFolder);
             Console.ResetColor();
