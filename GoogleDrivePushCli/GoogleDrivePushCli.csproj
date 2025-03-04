@@ -2,14 +2,15 @@
 
     <PropertyGroup>
         <Version>2.2.0</Version>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <AssemblyName>goop</AssemblyName>
         <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
         <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-        <SelfContained>true</SelfContained> 
+        <SelfContained>true</SelfContained>
+        <PublishSingleFile>true</PublishSingleFile>
     </PropertyGroup>
-
 
     <ItemGroup>
         <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
@@ -19,7 +20,6 @@
         <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
     </ItemGroup>
-
 
     <ItemGroup>
       <ProjectReference Include="..\SqliteSchemaRepository\SqliteSchemaRepository.csproj" />
