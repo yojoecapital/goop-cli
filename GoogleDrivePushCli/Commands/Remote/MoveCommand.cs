@@ -59,6 +59,10 @@ public class MoveCommand : Command
             if (remoteFolder == null) return;
         }
         else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(folderPath).Peek();
+        if (remoteFolder is not RemoteFolder)
+        {
+            throw new Exception($"Folder path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
+        }
         DataAccessManager.Instance.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
         Console.WriteLine($"Moved '{remoteItem.Name}' into '{remoteFolder.Name}'.");
     }

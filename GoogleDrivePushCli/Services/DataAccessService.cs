@@ -121,6 +121,9 @@ public class DataAccessManager : IDataAccessService
     public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
     {
         var remoteFolder = driveServiceWrapper.CreateRemoteFolder(parentRemoteFolderId, folderName);
+
+        // Populate is set because it is known that a new folder is empty
+        remoteFolder.Populated = true;
         remoteFolder.Timestamp = GetNextTimestamp();
         remoteFolderCacheRepository.Insert(remoteFolder);
         return remoteFolder;

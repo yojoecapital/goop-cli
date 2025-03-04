@@ -166,11 +166,11 @@ public class DriveServiceWrapper : IDataAccessService
         }
         catch (IOException)
         {
-            throw new Exception($"Failed to save downloaded remote file '({remoteFileId})' due to an IO error");
+            throw new Exception($"Failed to save downloaded remote file ({remoteFileId}) due to an IO error");
         }
         catch (Exception)
         {
-            throw new Exception($"Failed to download remote file '({remoteFileId})' to '{path}'");
+            throw new Exception($"Failed to download remote file ({remoteFileId}) to '{path}'");
         }
         finally
         {

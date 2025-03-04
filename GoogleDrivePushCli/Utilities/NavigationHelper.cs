@@ -10,17 +10,17 @@ namespace GoogleDrivePushCli.Utilities
 
     public static class NavigationHelper
     {
-        public struct Configuration
+        public class Configuration
         {
             public string prompt;
             public string selectThisText;
             public bool onlyDisplayFolders;
+            public bool onlyDisplayFiles;
 
             public Configuration()
             {
                 prompt = "Select an item:";
                 selectThisText = "Select this";
-                onlyDisplayFolders = false;
             }
         }
 
@@ -82,7 +82,7 @@ namespace GoogleDrivePushCli.Utilities
 
         public static string GetPathFromStack(Stack<RemoteItem> stack) => string.Join('/', stack.Select(item => item.Name).Reverse());
 
-        public static Stack<RemoteItem> Navigate(string path, Configuration? configuration = null)
+        public static Stack<RemoteItem> Navigate(string path, Configuration configuration = null)
         {
             var history = DataAccessManager.Instance.GetRemoteItemsFromPath(path);
             if (history.Count == 0) throw new Exception("Nothing to navigate");
@@ -91,20 +91,20 @@ namespace GoogleDrivePushCli.Utilities
                 if (history.Count == 1) throw new Exception("Cannot navigate from a file");
                 history.Pop();
             }
-            if (!configuration.HasValue) configuration = new();
+            configuration ??= new();
             while (true)
             {
                 var currentRow = Console.CursorTop;
                 var choices = new List<NavigationChoice>();
                 if (history.Count > 1) choices.Add(NavigationChoice.goUp);
-                choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.Value.selectThisText));
+                if (!configuration.onlyDisplayFiles) choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.selectThisText));
                 DataAccessManager.Instance.GetRemoteFolder(history.Peek().Id, out var remoteFiles, out var remoteFolders);
-                if (!configuration.Value.onlyDisplayFolders) choices.AddRange(remoteFiles.Select(remoteFiles => new NavigationChoice(remoteFiles)));
+                if (!configuration.onlyDisplayFolders) choices.AddRange(remoteFiles.Select(remoteFiles => new NavigationChoice(remoteFiles)));
                 choices.AddRange(remoteFolders.Select(remoteFolder => new NavigationChoice(remoteFolder)));
                 choices.Add(NavigationChoice.cancel);
                 var currentPath = GetPathFromStack(history);
                 var prompt = new SelectionPrompt<NavigationChoice>()
-                    .Title($"{configuration.Value.prompt.EscapeMarkup()} [[[yellow]{currentPath.EscapeMarkup()}[/]]]")
+                    .Title($"{configuration.prompt.EscapeMarkup()} [[[yellow]{currentPath.EscapeMarkup()}[/]]]")
                     .PageSize(10)
                     .WrapAround()
                     .AddChoices(choices);

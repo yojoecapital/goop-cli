@@ -8,7 +8,9 @@ public class RemoteCommands : Command
     {
         AddCommand(new InformationCommand());
         AddCommand(new ListCommand());
+        AddCommand(new MakeFolderCommand());
         AddCommand(new MoveCommand());
         AddCommand(new TrashCommand());
+        AddCommand(new DownloadFileCommand());
     }
 }
