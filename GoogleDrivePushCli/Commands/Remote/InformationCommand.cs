@@ -1,5 +1,7 @@
 using System.CommandLine;
-using GoogleDrivePushCli.Data.Models;
+using GoogleDrivePushCli.Models;
+using GoogleDrivePushCli.Repositories;
+using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
 
@@ -26,21 +28,30 @@ public class InformationCommand : Command
             isInteractive = true;
             path = "/";
         }
-        RemoteItem item;
+        RemoteItem remoteItem;
         if (isInteractive)
         {
-            item = NavigationHelper.Navigate(path)?.Peek();
-            if (item == null) return;
+            remoteItem = NavigationHelper.Navigate(path)?.Peek();
+            if (remoteItem == null) return;
         }
-        else item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
+        else remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
         var grid = new Grid();
         grid.AddColumn();
         grid.AddColumn();
-        grid.AddRow(["[bold]ID[/]", $": {item.Id}"]);
-        grid.AddRow(["[bold]Name[/]", $": {item.Name.EscapeMarkup()}"]);
-        grid.AddRow(["[bold]MIME type[/]", $": {item.MimeType}"]);
-        grid.AddRow(["[bold]Modified time[/]", $": {item.ModifiedTime}"]);
-        if (item.Size.HasValue) grid.AddRow(["[bold]Size[/]", $": {item.Size.Value.ToFileSize()}"]);
+        if (remoteItem is RemoteFile remoteFile)
+        {
+            grid.AddRow(["[bold]ID[/]", $": {remoteFile.Id}"]);
+            grid.AddRow(["[bold]Name[/]", $": {remoteFile.Name.EscapeMarkup()}"]);
+            grid.AddRow(["[bold]MIME type[/]", $": {remoteFile.MimeType}"]);
+            grid.AddRow(["[bold]Modified time[/]", $": {remoteFile.ModifiedTime}"]);
+            grid.AddRow(["[bold]Size[/]", $": {remoteFile.Size.ToFileSize()}"]);
+        }
+        else
+        {
+            grid.AddRow(["[bold]ID[/]", $": {remoteItem.Id}"]);
+            grid.AddRow(["[bold]Name[/]", $": {remoteItem.Name.EscapeMarkup()}"]);
+            grid.AddRow(["[bold]MIME type[/]", $": {RemoteFolder.MimeType}"]);
+        }
         AnsiConsole.Write(grid);
     }
 }

@@ -11,9 +11,17 @@ public class RootCacheRepository(SqliteConnection connection) : Repository<RootC
         new("Id", PropertyType.Integer, _ => 1, (_, _) => { }),
         [
             new(nameof(RootCache.RootId), PropertyType.String, false),
-            new(nameof(RootCache.Timestamp), PropertyType.UtcDateTime, false)
+            new(nameof(RootCache.Timestamp), PropertyType.Long, false)
         ]
     ),
     connection
 )
-{ }
+{
+    public bool IsInitialized => Model != null;
+
+    public RootCache Model
+    {
+        get => SelectByKey(1);
+        set => Insert(value);
+    }
+}

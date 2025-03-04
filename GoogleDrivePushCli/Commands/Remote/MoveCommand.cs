@@ -1,6 +1,7 @@
 using System;
 using System.CommandLine;
-using GoogleDrivePushCli.Data.Models;
+using GoogleDrivePushCli.Models;
+using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 
 namespace GoogleDrivePushCli.Commands.Remote;
@@ -27,7 +28,7 @@ public class MoveCommand : Command
 
     private static void Handle(string path, string folderPath, bool isInteractive)
     {
-        RemoteItem item, folder;
+        RemoteItem remoteItem, remoteFolder;
         string defaultPath = "/";
         if (string.IsNullOrEmpty(path) || isInteractive)
         {
@@ -37,28 +38,28 @@ public class MoveCommand : Command
                 selectThisText = "Move this"
             });
             if (history == null) return;
-            item = history.Peek();
-            if (!history.Peek().IsFolder) history.Pop();
+            remoteItem = history.Peek();
+            if (history.Peek() is not RemoteFolder) history.Pop();
             defaultPath = NavigationHelper.GetPathFromStack(history);
         }
-        else item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
-        if (DriveServiceWrapper.Instance.IsRoot(item)) throw new Exception("Cannot move root folder");
+        else remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+        if (remoteItem.Id == DataAccessManager.Instance.RootId) throw new Exception("Cannot move root folder");
         if (string.IsNullOrEmpty(folderPath) || isInteractive)
         {
             if (string.IsNullOrEmpty(folderPath)) folderPath = defaultPath;
-            folder = NavigationHelper.Navigate(
+            remoteFolder = NavigationHelper.Navigate(
                 folderPath,
                 new()
                 {
-                    prompt = $"Select an folder to move '{item.Name}' into:",
+                    prompt = $"Select an folder to move '{remoteItem.Name}' into:",
                     selectThisText = "Move here",
-                    filterOnMimeType = DriveServiceWrapper.folderMimeType
+                    onlyDisplayFolders = true
                 }
             )?.Peek();
-            if (folder == null) return;
+            if (remoteFolder == null) return;
         }
-        else folder = DriveServiceWrapper.Instance.GetItemsFromPath(folderPath).Peek();
-        DriveServiceWrapper.Instance.MoveItem(item.Id, folder.Id);
-        Console.WriteLine($"Moved '{item.Name}' into '{folder.Name}'.");
+        else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(folderPath).Peek();
+        DataAccessManager.Instance.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
+        Console.WriteLine($"Moved '{remoteItem.Name}' into '{remoteFolder.Name}'.");
     }
 }

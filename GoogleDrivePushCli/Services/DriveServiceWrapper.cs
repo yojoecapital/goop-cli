@@ -17,7 +17,6 @@ public class DriveServiceWrapper : IDataAccessService
 {
     private readonly DriveService service;
     private readonly UserCredential credential;
-    private static readonly string folderMimeType = "application/vnd.google-apps.folder";
     private static readonly string rootIdAlias = "root";
     private static readonly string defaultFolderFields = "id, name, trashed, parents";
     private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
@@ -141,7 +140,7 @@ public class DriveServiceWrapper : IDataAccessService
             var body = new GoogleDriveFile()
             {
                 Name = folderName,
-                MimeType = folderMimeType,
+                MimeType = RemoteFolder.MimeType,
                 Parents = [parentRemoteFolderId]
             };
             var request = service.Files.Create(body);
@@ -197,7 +196,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void RestoreRemoteItemFromTrash(string remoteItemId)
+    public RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
     {
         try
         {
@@ -206,8 +205,11 @@ public class DriveServiceWrapper : IDataAccessService
                 Trashed = false
             };
             var request = service.Files.Update(body, remoteItemId);
-            request.Execute();
+            request.Fields = defaultFileFields;
+            var googleDriveItem = request.Execute();
             ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been trashed successfully.");
+            if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
+            else return RemoteFile.CreateFrom(googleDriveItem);
         }
         catch
         {
@@ -215,15 +217,17 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
+    public RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
         try
         {
             var request = service.Files.Update(null, remoteItemId);
             request.AddParents = parentRemoteFolderId;
             request.Fields = defaultFileFields;
-            var updatedItemResponse = request.Execute();
+            var googleDriveItem = request.Execute();
             ConsoleHelpers.Info($"Remote item ({remoteItemId}) moved into remote folder ({parentRemoteFolderId}).");
+            if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
+            else return RemoteFile.CreateFrom(googleDriveItem);
         }
         catch (Exception ex)
         {
@@ -235,21 +239,21 @@ public class DriveServiceWrapper : IDataAccessService
     public RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         var remoteitem = GetRemoteItem(remoteFolderId);
+        if (remoteitem is not RemoteFolder remoteFolder)
+        {
+            throw new Exception($"Remote item ({remoteFolderId}) is not a folder");
+        }
         try
         {
-            if (remoteitem is not RemoteFolder remoteFolder)
-            {
-                throw new Exception($"Remote item ({remoteFolderId}) is not a folder");
-            }
             var listRequest = service.Files.List();
-            listRequest.Q = $"'{remoteFolderId}' in parents";
+            listRequest.Q = $"'{remoteFolderId}' in parents and trashed = false";
             listRequest.Fields = $"files({defaultFileFields})";
             var result = listRequest.Execute();
             remoteFiles = [];
             remoteFolders = [];
             foreach (var googleDriveItem in result.Files)
             {
-                if (googleDriveItem.MimeType == folderMimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
+                if (googleDriveItem.MimeType == RemoteFolder.MimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
                 else remoteFiles.Add(RemoteFile.CreateFrom(googleDriveItem));
             }
             return remoteFolder;
@@ -260,7 +264,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void GetItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
+    public void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         try
         {
@@ -272,7 +276,7 @@ public class DriveServiceWrapper : IDataAccessService
             remoteFolders = [];
             foreach (var googleDriveItem in result.Files)
             {
-                if (googleDriveItem.MimeType == folderMimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
+                if (googleDriveItem.MimeType == RemoteFolder.MimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
                 else remoteFiles.Add(RemoteFile.CreateFrom(googleDriveItem));
             }
         }
@@ -295,40 +299,23 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteItem GetRemoteItem(string itemId)
+    public RemoteItem GetRemoteItem(string remoteItemId)
     {
+        GoogleDriveFile googleDriveItem;
         try
         {
-            var request = service.Files.Get(itemId);
+            var request = service.Files.Get(remoteItemId);
             request.Fields = defaultFileFields;
-            var googleDriveItem = request.Execute();
-            if (googleDriveItem.MimeType == folderMimeType) return RemoteFolder.CreateFrom(googleDriveItem);
-            else return RemoteFile.CreateFrom(googleDriveItem);
+            googleDriveItem = request.Execute();
         }
         catch
         {
-            throw new Exception($"Failed to fetch remote item ({itemId})");
+            throw new Exception($"Failed to fetch remote item ({remoteItemId})");
         }
+        if (googleDriveItem.Trashed.Value) throw new Exception($"Remote item ({remoteItemId}) is trashed");
+        if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
+        else return RemoteFile.CreateFrom(googleDriveItem);
     }
 
     public RemoteFolder GetRootFolder() => (RemoteFolder)GetRemoteItem(rootIdAlias);
-
-    // public Stack<RemoteItem> GetRemoteItemsFromPath(string path)
-    // {
-    //     var stack = new Stack<RemoteItem>();
-    //     if (path.StartsWith(driveRoot)) path = path.ReplaceFirst(driveRoot, "/");
-    //     else if (!path.StartsWith('/')) path = $"/{path}";
-    //     var parts = path.Split('/').Where(p => !string.IsNullOrEmpty(p));
-    //     string currentId = rootIdAlias;
-    //     stack.Push(GetRem(rootIdAlias));
-    //     foreach (var part in parts)
-    //     {
-    //         var items = GetItems(currentId, out var folder);
-    //         var match = items.FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
-    //         if (match == default) throw new Exception($"No item matched for '{part}' in path '{path}'");
-    //         currentId = match.Id;
-    //         stack.Push(match);
-    //     }
-    //     return stack;
-    // }
 }

@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GoogleDrivePushCli.Data.Models;
+using GoogleDrivePushCli.Models;
+using GoogleDrivePushCli.Services;
 using Spectre.Console;
 
 namespace GoogleDrivePushCli.Utilities
@@ -13,13 +14,13 @@ namespace GoogleDrivePushCli.Utilities
         {
             public string prompt;
             public string selectThisText;
-            public string filterOnMimeType;
+            public bool onlyDisplayFolders;
 
             public Configuration()
             {
                 prompt = "Select an item:";
                 selectThisText = "Select this";
-                filterOnMimeType = null;
+                onlyDisplayFolders = false;
             }
         }
 
@@ -38,20 +39,20 @@ namespace GoogleDrivePushCli.Utilities
 
             public ActionType Action { get; private set; }
             public string Display { get; private set; }
-            public RemoteItem Item { get; private set; }
+            public RemoteItem RemoteItem { get; private set; }
 
-            public NavigationChoice(RemoteItem item)
+            public NavigationChoice(RemoteItem remoteItem)
             {
-                Item = item;
-                if (item.IsFolder)
+                RemoteItem = remoteItem;
+                if (remoteItem is RemoteFolder)
                 {
                     Action = ActionType.Folder;
-                    Display = $"[[+]] {item.Name.EscapeMarkup()}";
+                    Display = $"[[+]] {remoteItem.Name.EscapeMarkup()}";
                 }
                 else
                 {
                     Action = ActionType.File;
-                    Display = $"[[-]] {item.Name.EscapeMarkup()}";
+                    Display = $"[[-]] {remoteItem.Name.EscapeMarkup()}";
                 }
             }
 
@@ -71,9 +72,9 @@ namespace GoogleDrivePushCli.Utilities
                 Display = "[red][[X]] Cancel[/]"
             };
 
-            public static NavigationChoice SelectThis(RemoteItem item, string selectThis) => new()
+            public static NavigationChoice SelectThis(RemoteItem remoteItem, string selectThis) => new()
             {
-                Item = item,
+                RemoteItem = remoteItem,
                 Action = ActionType.SelectThis,
                 Display = $"[[-]] {selectThis}",
             };
@@ -83,9 +84,9 @@ namespace GoogleDrivePushCli.Utilities
 
         public static Stack<RemoteItem> Navigate(string path, Configuration? configuration = null)
         {
-            var history = DriveServiceWrapper.Instance.GetItemsFromPath(path);
+            var history = DataAccessManager.Instance.GetRemoteItemsFromPath(path);
             if (history.Count == 0) throw new Exception("Nothing to navigate");
-            if (!history.Peek().IsFolder)
+            if (history.Peek() is not RemoteFolder)
             {
                 if (history.Count == 1) throw new Exception("Cannot navigate from a file");
                 history.Pop();
@@ -97,9 +98,9 @@ namespace GoogleDrivePushCli.Utilities
                 var choices = new List<NavigationChoice>();
                 if (history.Count > 1) choices.Add(NavigationChoice.goUp);
                 choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.Value.selectThisText));
-                IEnumerable<RemoteItem> items = DriveServiceWrapper.Instance.GetItems(history.Peek().Id, out var _);
-                if (configuration.Value.filterOnMimeType != null) items = items.Where(item => item.MimeType == configuration.Value.filterOnMimeType);
-                choices.AddRange(items.Select(item => new NavigationChoice(item)));
+                DataAccessManager.Instance.GetRemoteFolder(history.Peek().Id, out var remoteFiles, out var remoteFolders);
+                if (!configuration.Value.onlyDisplayFolders) choices.AddRange(remoteFiles.Select(remoteFiles => new NavigationChoice(remoteFiles)));
+                choices.AddRange(remoteFolders.Select(remoteFolder => new NavigationChoice(remoteFolder)));
                 choices.Add(NavigationChoice.cancel);
                 var currentPath = GetPathFromStack(history);
                 var prompt = new SelectionPrompt<NavigationChoice>()
@@ -116,10 +117,10 @@ namespace GoogleDrivePushCli.Utilities
                     case ActionType.Cancel:
                         return null;
                     case ActionType.Folder:
-                        history.Push(choice.Item);
+                        history.Push(choice.RemoteItem);
                         break;
                     case ActionType.File:
-                        history.Push(choice.Item);
+                        history.Push(choice.RemoteItem);
                         return history;
                     case ActionType.SelectThis:
                         return history;

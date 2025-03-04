@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GoogleDrivePushCli.Json;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Utilities;
@@ -14,19 +15,21 @@ public class RemoteFolderCacheRepository(SqliteConnection connection) : Reposito
         [
             new(nameof(RemoteFolder.Name), PropertyType.String, false),
             new(nameof(RemoteFolder.FolderId), PropertyType.String, true),
-            new(nameof(RemoteFolder.Timestamp), PropertyType.Long, false)
+            new(nameof(RemoteFolder.Timestamp), PropertyType.Long, false),
+            new(nameof(RemoteFolder.Populated), PropertyType.Boolean, false)
         ]
     ),
     connection
 )
 {
-    public RemoteFolder SelectByFolderId(string folderId)
+    public IEnumerable<RemoteFolder> SelectByFolderId(string folderId)
     {
         var command = Connection.CreateCommand();
-        command.CommandText = ModelSchema.GetSelectByCommandText($"{nameof(RemoteFolder.FolderId)} = @{nameof(RemoteFolder.FolderId)}");
+        command.CommandText = ModelSchema.GetSelectByCommandText(
+            $"{nameof(RemoteFolder.FolderId)} = @{nameof(RemoteFolder.FolderId)}"
+        );
         command.Parameters.AddWithValue(nameof(RemoteFolder.FolderId), folderId);
         var reader = command.ExecuteReader();
-        if (!reader.Read()) return null;
-        return ModelSchema.CreateModelFrom(reader);
+        while (reader.Read()) yield return ModelSchema.CreateModelFrom(reader);
     }
 }

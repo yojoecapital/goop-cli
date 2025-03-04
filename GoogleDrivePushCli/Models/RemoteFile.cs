@@ -9,8 +9,7 @@ public class RemoteFile : RemoteItem
     public string MimeType { get; set; }
     public DateTime ModifiedTime { get; set; }
     public long Size { get; set; }
-
-    public override string ToString() => Name;
+    public bool Trashed { get; set; }
 
     public static RemoteFile CreateFrom(GoogleDriveFile googleDriveFile)
     {
@@ -21,7 +20,7 @@ public class RemoteFile : RemoteItem
             MimeType = googleDriveFile.MimeType,
             ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime,
             Size = googleDriveFile.Size.Value,
-            FolderId = googleDriveFile.Parents.First()
+            FolderId = googleDriveFile.Parents?.FirstOrDefault()
         };
     }
 }

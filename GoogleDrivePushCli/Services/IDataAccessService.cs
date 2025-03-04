@@ -15,15 +15,15 @@ public interface IDataAccessService
 
     public void TrashRemoteItem(string remoteItemId);
 
-    public void RestoreRemoteItemFromTrash(string remoteItemId);
+    public RemoteItem RestoreRemoteItemFromTrash(string remoteItemId);
 
-    public void MoveRemoteItem(string remoteItemId, string parentRemoteFolderId);
+    public RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId);
 
     public RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders);
 
-    public RemoteItem GetRemoteItem(string itemId);
+    public RemoteItem GetRemoteItem(string remoteItemId);
 
-    public void GetItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders);
+    public void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders);
 
     public void EmptyTrash();
 }

@@ -1,6 +1,7 @@
 using System;
 using System.CommandLine;
-using GoogleDrivePushCli.Data.Models;
+using GoogleDrivePushCli.Models;
+using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
 
@@ -36,36 +37,36 @@ public class TrashCommand : Command
     private static void Handle(string path, bool isInteractive, bool shouldList, bool shouldEmpty, bool skipConfirmation)
     {
         // handle the path argument
-        RemoteItem item = null;
+        RemoteItem remoteItem = null;
         if (isInteractive || string.IsNullOrEmpty(path) && !shouldList && !shouldEmpty)
         {
             if (string.IsNullOrEmpty(path)) path = "/";
-            item = NavigationHelper.Navigate(path, new()
+            remoteItem = NavigationHelper.Navigate(path, new()
             {
                 selectThisText = "Trash this"
             }).Peek();
         }
         else if (!string.IsNullOrEmpty(path))
         {
-            item = DriveServiceWrapper.Instance.GetItemsFromPath(path).Peek();
+            remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
         }
-        if (item != null)
+        if (remoteItem != null)
         {
-            if (DriveServiceWrapper.Instance.IsRoot(item))
+            if (remoteItem.Id == DataAccessManager.Instance.RootId)
             {
                 throw new Exception("Cannot trash root folder");
             }
-            DriveServiceWrapper.Instance.TrashItem(item.Id);
+            DataAccessManager.Instance.TrashRemoteItem(remoteItem.Id);
         }
 
         // handle the list option
         if (shouldList)
         {
-            foreach (var listedItem in DriveServiceWrapper.Instance.GetItemsInTrash())
-            {
-                if (shouldEmpty) AnsiConsole.MarkupLineInterpolated($"[red]{listedItem}[/]");
-                else Console.WriteLine(listedItem);
-            }
+            DataAccessManager.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
+            if (shouldEmpty) Console.BackgroundColor = ConsoleColor.Red;
+            foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
+            foreach (var remoteFolder in remoteFolders) Console.WriteLine(remoteFolder);
+            Console.ResetColor();
         }
 
         // handle the empty option
@@ -73,7 +74,7 @@ public class TrashCommand : Command
         {
             if (skipConfirmation || AnsiConsole.Confirm("Are you sure you want to empty the trash?", false))
             {
-                DriveServiceWrapper.Instance.EmptyTrash();
+                DataAccessManager.Instance.EmptyTrash();
             }
         }
     }
