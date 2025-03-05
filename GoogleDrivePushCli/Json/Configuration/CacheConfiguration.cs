@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleDrivePushCli.Json;
+namespace GoogleDrivePushCli.Json.Configuration;
 
 public class CacheConfiguration
 {

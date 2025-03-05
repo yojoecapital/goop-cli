@@ -3,9 +3,9 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace GoogleDrivePushCli.Json;
+namespace GoogleDrivePushCli.Json.Configuration;
 
-public class Configuration
+public class ApplicationConfiguration
 {
     [JsonPropertyName("cache")]
     public CacheConfiguration Cache { get; set; } = new();
@@ -13,12 +13,14 @@ public class Configuration
     public List<string> AutoIgnoreList { get; set; } = [];
 
     [JsonPropertyName("default_depth")]
-    public long DefaultDepth { get; set; } = 3;
+    public int DefaultDepth { get; set; } = 3;
+    [JsonPropertyName("max_depth")]
+    public int MaxDepth { get; set; } = 3;
     [JsonPropertyName("shortcut_template")]
     public string ShortcutTemplate { get; set; }
 
-    private static Configuration instance;
-    public static Configuration Instance
+    private static ApplicationConfiguration instance;
+    public static ApplicationConfiguration Instance
     {
         get
         {
@@ -27,15 +29,15 @@ public class Configuration
         }
     }
 
-    private static Configuration CreateConfiguration()
+    private static ApplicationConfiguration CreateConfiguration()
     {
         if (File.Exists(Defaults.configurationPath))
         {
             return JsonSerializer.Deserialize(
                 File.ReadAllText(Defaults.configurationJsonPath),
-                ConfigurationJsonContext.Default.Configuration
+                ApplicationConfigurationJsonContext.Default.ApplicationConfiguration
             );
         }
-        return new Configuration();
+        return new ApplicationConfiguration();
     }
 }

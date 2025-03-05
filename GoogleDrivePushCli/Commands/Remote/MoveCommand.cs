@@ -35,7 +35,7 @@ public class MoveCommand : Command
             if (string.IsNullOrEmpty(path)) path = defaultPath;
             var history = NavigationHelper.Navigate(path, new()
             {
-                selectThisText = "Move this"
+                selectThisText = "Move this folder"
             });
             if (history == null) return;
             remoteItem = history.Peek();

@@ -20,7 +20,7 @@ namespace GoogleDrivePushCli.Utilities
             public Configuration()
             {
                 prompt = "Select an item:";
-                selectThisText = "Select this";
+                selectThisText = "Select this folder";
             }
         }
 

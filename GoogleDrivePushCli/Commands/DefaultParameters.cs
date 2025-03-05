@@ -20,5 +20,13 @@ namespace GoogleDrivePushCli.Commands
         {
             Arity = ArgumentArity.ZeroOrOne
         };
+
+        public static readonly Argument<int> depthArgument = new(
+            "path",
+            "The max depth from a remote folder to pull from."
+        )
+        {
+            Arity = ArgumentArity.ZeroOrOne
+        };
     }
 }

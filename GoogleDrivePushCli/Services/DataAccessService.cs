@@ -2,7 +2,7 @@ using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Utilities;
 using Microsoft.Data.Sqlite;
 using System;
-using GoogleDrivePushCli.Json;
+using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Repositories;
 using System.Collections.Generic;
 using System.IO;
@@ -17,7 +17,7 @@ public class DataAccessManager : IDataAccessService
     private readonly RemoteFolderCacheRepository remoteFolderCacheRepository;
     private readonly DriveServiceWrapper driveServiceWrapper;
 
-    private readonly CacheConfiguration cacheConfiguration = Configuration.Instance.Cache;
+    private readonly CacheConfiguration cacheConfiguration = ApplicationConfiguration.Instance.Cache;
     private readonly RootCache rootCache;
     private readonly SqliteConnection connection;
 
@@ -269,7 +269,7 @@ public class DataAccessManager : IDataAccessService
             stack.Push(remoteFolder);
             match = remoteFolders
                 .FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase)) ??
-                throw new Exception($"No item matched for '{part}' in path '{path}'");
+                throw new FileNotFoundException($"No item matched for '{part}' in path '{path}'");
             currentId = match.Id;
         }
         stack.Push(match);

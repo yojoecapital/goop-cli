@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using GoogleDrivePushCli.Json;
+using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Utilities;
 using Microsoft.Data.Sqlite;

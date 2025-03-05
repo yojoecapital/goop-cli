@@ -94,7 +94,7 @@ public class DriveServiceWrapper : IDataAccessService
             var request = service.About.Get();
             request.Fields = "user";
             var about = request.Execute();
-            return $"Established drive service for {about.User.EmailAddress}.";
+            return $"Established drive service for '{about.User.EmailAddress}'.";
         }
         catch
         {

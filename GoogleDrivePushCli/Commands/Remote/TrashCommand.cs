@@ -43,7 +43,7 @@ public class TrashCommand : Command
             if (string.IsNullOrEmpty(path)) path = "/";
             remoteItem = NavigationHelper.Navigate(path, new()
             {
-                selectThisText = "Trash this"
+                selectThisText = "Trash this folder"
             }).Peek();
         }
         else if (!string.IsNullOrEmpty(path))
