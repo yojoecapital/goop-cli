@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.IO;
 
 namespace GoogleDrivePushCli.Commands
 {
@@ -8,6 +9,7 @@ namespace GoogleDrivePushCli.Commands
             ["--interactive", "-i"],
             "Open to the path and use an interactive prompt."
         );
+
         public static readonly Option<bool> yesOption = new(
             ["--yes", "-y"],
             "Skip the confirmation prompt."
@@ -28,5 +30,11 @@ namespace GoogleDrivePushCli.Commands
         {
             Arity = ArgumentArity.ZeroOrOne
         };
+
+        public static readonly Option<string> workingDirectoryOption = new(
+            "--working-dir",
+            Directory.GetCurrentDirectory,
+            "The working directory to use."
+        );
     }
 }

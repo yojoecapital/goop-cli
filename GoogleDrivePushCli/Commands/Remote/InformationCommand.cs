@@ -1,6 +1,5 @@
 using System.CommandLine;
 using GoogleDrivePushCli.Models;
-using GoogleDrivePushCli.Repositories;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;

@@ -11,17 +11,14 @@ public class MoveCommand : Command
     public MoveCommand() : base("move", "Reparent an item.")
     {
         AddAlias("mv");
-        var folderPathArgument = new Argument<string>("folder-path", "The path of the remote folder to move the item into.")
-        {
-            Arity = ArgumentArity.ZeroOrOne
-        };
+        var remoteFolderPathOption = new Option<string>("--into", "The path of the remote folder to move the item into.");
         AddArgument(DefaultParameters.pathArgument);
-        AddArgument(folderPathArgument);
+        AddOption(remoteFolderPathOption);
         AddOption(DefaultParameters.interactiveOption);
         this.SetHandler(
             Handle,
             DefaultParameters.pathArgument,
-            folderPathArgument,
+            remoteFolderPathOption,
             DefaultParameters.interactiveOption
         );
     }

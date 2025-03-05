@@ -15,7 +15,6 @@ public class DataAccessManager : IDataAccessService
     private readonly RootCacheRepository rootCacheRepository;
     private readonly RemoteFileCacheRepository remoteFileCacheRepository;
     private readonly RemoteFolderCacheRepository remoteFolderCacheRepository;
-    private readonly DriveServiceWrapper driveServiceWrapper;
 
     private readonly CacheConfiguration cacheConfiguration = ApplicationConfiguration.Instance.Cache;
     private readonly RootCache rootCache;
@@ -31,11 +30,18 @@ public class DataAccessManager : IDataAccessService
         }
     }
 
+    private DriveServiceWrapper driveServiceWrapper;
+    private DriveServiceWrapper DriveServiceWrapper
+    {
+        get
+        {
+            driveServiceWrapper ??= new();
+            return driveServiceWrapper;
+        }
+    }
+
     private DataAccessManager()
     {
-        // Initialize drive service
-        driveServiceWrapper = new();
-
         // Create tables if database file doesn't exist
         var shouldCreateTables = !File.Exists(Defaults.cacheDatabasePath);
 
@@ -60,7 +66,7 @@ public class DataAccessManager : IDataAccessService
         if (!rootCacheRepository.IsInitialized)
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var rootId = driveServiceWrapper.GetRootFolder().Id;
+            var rootId = DriveServiceWrapper.GetRootFolder().Id;
             rootCacheRepository.Model = new()
             {
                 Timestamp = timestamp,
@@ -104,7 +110,7 @@ public class DataAccessManager : IDataAccessService
 
     public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath)
     {
-        var remoteFile = driveServiceWrapper.UpdateRemoteFile(remoteFileId, localFilePath);
+        var remoteFile = DriveServiceWrapper.UpdateRemoteFile(remoteFileId, localFilePath);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Upsert(remoteFile);
         return remoteFile;
@@ -112,7 +118,7 @@ public class DataAccessManager : IDataAccessService
 
     public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath)
     {
-        var remoteFile = driveServiceWrapper.CreateRemoteFile(remoteFolderId, localFilePath);
+        var remoteFile = DriveServiceWrapper.CreateRemoteFile(remoteFolderId, localFilePath);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Insert(remoteFile);
         return remoteFile;
@@ -120,7 +126,7 @@ public class DataAccessManager : IDataAccessService
 
     public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
     {
-        var remoteFolder = driveServiceWrapper.CreateRemoteFolder(parentRemoteFolderId, folderName);
+        var remoteFolder = DriveServiceWrapper.CreateRemoteFolder(parentRemoteFolderId, folderName);
 
         // Populate is set because it is known that a new folder is empty
         remoteFolder.Populated = true;
@@ -129,11 +135,11 @@ public class DataAccessManager : IDataAccessService
         return remoteFolder;
     }
 
-    public void DownloadFile(string remoteFileId, string path) => driveServiceWrapper.DownloadFile(remoteFileId, path);
+    public void DownloadFile(string remoteFileId, string path) => DriveServiceWrapper.DownloadFile(remoteFileId, path);
 
     public void TrashRemoteItem(string remoteItemId)
     {
-        driveServiceWrapper.TrashRemoteItem(remoteItemId);
+        DriveServiceWrapper.TrashRemoteItem(remoteItemId);
 
         // If item is in the file cache, remove it
         var remoteFile = remoteFileCacheRepository.SelectByKey(remoteItemId);
@@ -151,7 +157,7 @@ public class DataAccessManager : IDataAccessService
 
     public RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
     {
-        var remoteItem = driveServiceWrapper.RestoreRemoteItemFromTrash(remoteItemId);
+        var remoteItem = DriveServiceWrapper.RestoreRemoteItemFromTrash(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile) remoteFileCacheRepository.Upsert(remoteFile);
         else if (remoteItem is RemoteFolder remoteFolder)
@@ -164,7 +170,7 @@ public class DataAccessManager : IDataAccessService
 
     public RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
-        var remoteItem = driveServiceWrapper.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
+        var remoteItem = DriveServiceWrapper.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile)
         {
@@ -194,7 +200,7 @@ public class DataAccessManager : IDataAccessService
                 return remoteFolder;
             }
         }
-        remoteFolder = driveServiceWrapper.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
+        remoteFolder = DriveServiceWrapper.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
         remoteFolder.Populated = true;
         var timestamp = GetNextTimestamp();
         remoteFolder.Timestamp = timestamp;
@@ -236,7 +242,7 @@ public class DataAccessManager : IDataAccessService
                 remoteFolderCacheRepository.DeleteByKey(remoteItemId);
             }
         }
-        var remoteItem = driveServiceWrapper.GetRemoteItem(remoteItemId);
+        var remoteItem = DriveServiceWrapper.GetRemoteItem(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFileToInsert) remoteFileCacheRepository.Insert(remoteFileToInsert);
         else if (remoteItem is RemoteFolder remoteFolderToInsert) remoteFolderCacheRepository.Insert(remoteFolderToInsert);
@@ -245,29 +251,32 @@ public class DataAccessManager : IDataAccessService
 
     public void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
-        driveServiceWrapper.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
+        DriveServiceWrapper.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
     }
 
-    public void EmptyTrash() => driveServiceWrapper.EmptyTrash();
+    public void EmptyTrash() => DriveServiceWrapper.EmptyTrash();
 
     private readonly string driveRoot = "My Drive";
 
-    public Stack<RemoteItem> GetRemoteItemsFromPath(string path)
+
+    public Stack<RemoteItem> GetRemoteItemsFromPath(string path) => GetRemoteItemsFromPath(path, RootId);
+
+    public Stack<RemoteItem> GetRemoteItemsFromPath(string path, string startingId)
     {
         if (string.IsNullOrWhiteSpace(path)) throw new Exception("Cannot process an empty path");
         var stack = new Stack<RemoteItem>();
         if (path.StartsWith(driveRoot)) path = path.ReplaceFirst(driveRoot, "/");
         else if (!path.StartsWith('/')) path = $"/{path}";
         var parts = path.Split('/').Where(p => !string.IsNullOrEmpty(p));
-
-        // Start with the root
-        string currentId = RootId;
-        RemoteItem match = GetRemoteItem(RootId);
+        string currentId = startingId;
+        RemoteItem match = GetRemoteItem(startingId);
         foreach (var part in parts)
         {
             var remoteFolder = GetRemoteFolder(currentId, out var remoteFiles, out var remoteFolders);
             stack.Push(remoteFolder);
-            match = remoteFolders
+            match = (RemoteItem)remoteFolders
+                .FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase)) ??
+                remoteFiles
                 .FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase)) ??
                 throw new FileNotFoundException($"No item matched for '{part}' in path '{path}'");
             currentId = match.Id;

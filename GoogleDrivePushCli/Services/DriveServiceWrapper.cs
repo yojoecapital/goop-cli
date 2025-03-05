@@ -172,10 +172,6 @@ public class DriveServiceWrapper : IDataAccessService
         {
             throw new Exception($"Failed to download remote file ({remoteFileId}) to '{path}'");
         }
-        finally
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
     }
 
     public void TrashRemoteItem(string remoteItemId)

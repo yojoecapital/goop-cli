@@ -2,7 +2,6 @@ using System;
 using System.CommandLine;
 using System.IO;
 using GoogleDrivePushCli.Models;
-using GoogleDrivePushCli.Repositories;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
@@ -65,6 +64,7 @@ public class DownloadFileCommand : Command
             File.Exists(localPath) && !skipConfirmation &&
             !AnsiConsole.Confirm($"A file already exists at '{localPath}'. Are you sure you want to replace it?", false)
         ) return;
-        DataAccessManager.Instance.DownloadFile(remoteFile.Id, localPath);
+        AnsiConsole.Status().Start($"Downloading '{remoteFile.Name}'...", _ => DataAccessManager.Instance.DownloadFile(remoteFile.Id, localPath));
+        Console.WriteLine($"Downloaded remote file '{remoteFile.Name}' ({remoteFile.Id}) to '{localPath}'.");
     }
 }

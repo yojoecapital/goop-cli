@@ -2,7 +2,6 @@ using System;
 using System.CommandLine;
 using System.IO;
 using GoogleDrivePushCli.Models;
-using GoogleDrivePushCli.Repositories;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
@@ -74,6 +73,7 @@ public class UploadFileCommand : Command
                 !AnsiConsole.Confirm($"A remote file named '{fileName}' already exists in '{remoteFolder.Name}' ({remoteFolder.Id}). Do you want to upload a duplicate?", false)
             ) return;
         }
-        DataAccessManager.Instance.UpdateRemoteFile(remoteFolder.Id, localPath);
+        AnsiConsole.Status().Start($"Uploading '{fileName}'...", _ => DataAccessManager.Instance.UpdateRemoteFile(remoteFolder.Id, localPath));
+        Console.WriteLine($"Uploaded '{fileName}' to remote folder '{remoteFolder.Name}' ({remoteFolder.Id}).");
     }
 }
