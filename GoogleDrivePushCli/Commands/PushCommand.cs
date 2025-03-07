@@ -97,7 +97,7 @@ public class PushCommand : Command
             if (remoteFilesMap.TryGetValue(fileName, out var remoteFile))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (lastWriteTime < remoteFile.ModifiedTime) continue;
+                if (lastWriteTime <= remoteFile.ModifiedTime) continue;
 
                 // File was edited
                 var operation = new Operation(

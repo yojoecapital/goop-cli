@@ -43,6 +43,7 @@ public class SyncFolder
 
     public static string FindParentDirectory(string startDirectory)
     {
+        startDirectory = Path.GetFullPath(startDirectory);
         var maxDepth = ApplicationConfiguration.Instance.MaxDepth;
         string currentDirectory = startDirectory;
         int depth = 0;
