@@ -23,7 +23,8 @@ namespace GoogleDrivePushCli
             {
                 new RemoteCommands(),
                 new InitializeCommand(),
-                new PullCommand()
+                new PullCommand(),
+                new PushCommand()
             };
             rootCommand.AddGlobalOption(verboseOption);
 

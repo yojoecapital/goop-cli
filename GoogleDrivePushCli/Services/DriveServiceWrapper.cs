@@ -122,7 +122,9 @@ public class DriveServiceWrapper : IDataAccessService
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
         ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been updated successfully using '{localFilePath}'.");
-        return RemoteFile.CreateFrom(request.ResponseBody);
+        var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
+        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime);
+        return remoteFile;
     }
 
     public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
@@ -145,7 +147,9 @@ public class DriveServiceWrapper : IDataAccessService
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
         ConsoleHelpers.Info($"File '{localFilePath}' has been uploaded successfully into remote file ({request.ResponseBody.Id}).");
-        return RemoteFile.CreateFrom(request.ResponseBody);
+        var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
+        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime);
+        return remoteFile;
     }
 
     public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
@@ -184,6 +188,7 @@ public class DriveServiceWrapper : IDataAccessService
                 progressReport?.Report(percentage);
             };
             request.Download(stream);
+            File.SetLastWriteTimeUtc(path, remoteFile.ModifiedTime);
             ConsoleHelpers.Info($"Remote file ({remoteFile.Id}) has been successfully downloaded to '{path}'.");
         }
         catch (IOException)

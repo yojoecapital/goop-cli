@@ -11,9 +11,9 @@ using Spectre.Console;
 
 namespace GoogleDrivePushCli.Commands;
 
-public class PullCommand : Command
+public class PushCommand : Command
 {
-    public PullCommand() : base("pull", "Pulls remote changes from Google Drive.")
+    public PushCommand() : base("push", "Pushes local changes to Google Drive.")
     {
         AddOption(DefaultParameters.operationsOption);
         AddOption(DefaultParameters.workingDirectoryOption);
@@ -62,10 +62,10 @@ public class PullCommand : Command
         var relativePath = Path.Join([.. history.Select(remoteFolder => remoteFolder.Name)]);
         var fullPath = Path.Join(syncFolder.LocalDirectory, relativePath);
         DataAccessService.Instance.GetRemoteFolder(remoteFolderId, out var remoteFiles, out var remoteFolders);
-        var remoteItemNames = remoteFiles
-            .Select(remoteFile => remoteFile.Name)
-            .Concat(remoteFolders.Select(remoteFolder => remoteFolder.Name))
-            .ToHashSet();
+        Dictionary<string, RemoteFile> remoteFilesMap = [];
+        Dictionary<string, RemoteFolder> remoteFoldersMap = [];
+        foreach (var remoteFile in remoteFiles) remoteFilesMap[remoteFile.Name] = remoteFile;
+        foreach (var remoteFolder in remoteFolders) remoteFoldersMap[remoteFolder.Name] = remoteFolder;
 
         // Handle files
         foreach (var remoteFile in remoteFiles)
@@ -77,27 +77,13 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping remote file '{fileRelativePath}' ({remoteFile.Id}).");
                 continue;
             }
-            if (File.Exists(fileFullPath))
-            {
-                var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (lastWriteTime >= remoteFile.ModifiedTime) continue;
+            if (File.Exists(fileFullPath)) continue;
 
-                // File was edited
-                var operation = new Operation(
-                    $"Local file '{fileRelativePath}'.",
-                    progress => DataAccessService.Instance.DownloadFile(remoteFile, fileFullPath, progress)
-                );
-                updateOperations.Add(operation);
-            }
-            else
-            {
-                // File was created
-                var operation = new Operation(
-                    $"Local file '{fileRelativePath}'.",
-                    progress => DataAccessService.Instance.DownloadFile(remoteFile, fileFullPath, progress)
-                );
-                createOperations.Add(operation);
-            }
+            // File was deleted
+            var operation = new Operation(
+                $"Remote file '{fileRelativePath}'.",
+                progress => DataAccessService.Instance.TrashRemoteItem(remoteFile.Id)
+            );
         }
         foreach (string fileFullPath in Directory.GetFiles(fullPath))
         {
@@ -108,18 +94,49 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping local file '{fileRelativePath}'.");
                 continue;
             }
-            if (remoteItemNames.Contains(fileName)) continue;
+            if (remoteFilesMap.TryGetValue(fileName, out var remoteFile))
+            {
+                var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
+                if (lastWriteTime < remoteFile.ModifiedTime) continue;
 
-            // File was deleted
-            var operation = new Operation(
-                $"Local file '{fileRelativePath}'.",
-                () => File.Delete(fileFullPath)
-            );
-            deleteOperations.Add(operation);
+                // File was edited
+                var operation = new Operation(
+                    $"Remote file '{fileRelativePath}'.",
+                    progress => DataAccessService.Instance.UpdateRemoteFile(remoteFile.Id, fileFullPath, progress)
+                );
+                updateOperations.Add(operation);
+            }
+            else
+            {
+                // File was created
+                var operation = new Operation(
+                    $"Remote file '{fileRelativePath}'.",
+                    progress => DataAccessService.Instance.CreateRemoteFile(remoteFile.Id, fileFullPath, progress)
+                );
+                createOperations.Add(operation);
+            }
         }
         if (depth >= syncFolder.Depth) return;
 
         // Handle folders
+        foreach (var remoteFolder in remoteFolders)
+        {
+            var folderFullPath = Path.Join(fullPath, remoteFolder.Name);
+            var folderRelativePath = Path.Join(relativePath, remoteFolder.Name);
+            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            {
+                ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
+                continue;
+            }
+            if (Directory.Exists(folderFullPath)) continue;
+
+            // The folder was deleted
+            var operation = new Operation(
+                $"Remote folder '{folderRelativePath}'.",
+                () => DataAccessService.Instance.TrashRemoteItem(remoteFolder.Id)
+            );
+            deleteOperations.Add(operation);
+        }
         foreach (string folderFullPath in Directory.GetDirectories(fullPath))
         {
             var folderName = Path.GetFileName(folderFullPath);
@@ -129,23 +146,11 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping local folder '{folderRelativePath}'.");
                 continue;
             }
-            if (remoteItemNames.Contains(folderName)) continue;
 
-            // The folder was deleted
-            var operation = new Operation(
-                $"Local folder '{folderRelativePath}'.",
-                () => Directory.Delete(folderFullPath, true)
-            );
-            deleteOperations.Add(operation);
-        }
-        foreach (var remoteFolder in remoteFolders)
-        {
-            var folderFullPath = Path.Join(fullPath, remoteFolder.Name);
-            var folderRelativePath = Path.Join(relativePath, remoteFolder.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            // Ensure the folder exists
+            if (!remoteFoldersMap.TryGetValue(folderName, out RemoteFolder remoteFolder))
             {
-                ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
-                continue;
+                remoteFolder = DataAccessService.Instance.CreateRemoteFolder(remoteFolderId, folderName);
             }
 
             // Tail end recursion

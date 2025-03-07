@@ -26,19 +26,4 @@ public class Operation
 
     public string Description => description;
     public Action<IProgress<double>> Action => action;
-
-    public void Run(ProgressTask progressTask) => Run(action, progressTask);
-
-    public static void Run(Action<IProgress<double>> action, ProgressTask progressTask)
-    {
-        double previous = 0;
-        var progress = new Progress<double>(percent =>
-        {
-            var change = percent - previous;
-            progressTask.Increment(change);
-            previous = percent;
-        });
-        action.Invoke(progress);
-        progressTask.Increment(1 - previous);
-    }
 }

@@ -68,7 +68,7 @@ public class DownloadFileCommand : Command
         AnsiConsole.Progress().Start(context =>
         {
             var task = context.AddTask($"Downloading '{remoteFile.Name}'", maxValue: 1);
-            Operation.Run(progress => DataAccessService.Instance.DownloadFile(remoteFile, localPath, progress), task);
+            OperationHelpers.Run(progress => DataAccessService.Instance.DownloadFile(remoteFile, localPath, progress), task);
         });
         Console.WriteLine($"Downloaded remote file '{remoteFile.Name}' ({remoteFile.Id}) to '{localPath}'.");
     }

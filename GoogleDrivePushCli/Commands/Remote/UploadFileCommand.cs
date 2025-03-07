@@ -76,7 +76,7 @@ public class UploadFileCommand : Command
         AnsiConsole.Progress().Start(context =>
         {
             var task = context.AddTask($"Uploading '{fileName}'", maxValue: 1);
-            Operation.Run(progress => DataAccessService.Instance.UpdateRemoteFile(remoteFolder.Id, localPath, progress), task);
+            OperationHelpers.Run(progress => DataAccessService.Instance.UpdateRemoteFile(remoteFolder.Id, localPath, progress), task);
         });
         Console.WriteLine($"Uploaded '{fileName}' to remote folder '{remoteFolder.Name}' ({remoteFolder.Id}).");
     }
