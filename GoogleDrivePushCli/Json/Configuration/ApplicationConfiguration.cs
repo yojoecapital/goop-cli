@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GoogleDrivePushCli.Utilities;
 
 namespace GoogleDrivePushCli.Json.Configuration;
 
@@ -10,7 +12,7 @@ public class ApplicationConfiguration
     [JsonPropertyName("cache")]
     public CacheConfiguration Cache { get; set; } = new();
     [JsonPropertyName("auto_ignore_list")]
-    public List<string> AutoIgnoreList { get; set; } = [];
+    public List<string> AutoIgnoreList { get; set; } = [Defaults.syncFolderFileName];
 
     [JsonPropertyName("default_depth")]
     public int DefaultDepth { get; set; } = 3;
@@ -38,6 +40,13 @@ public class ApplicationConfiguration
                 ApplicationConfigurationJsonContext.Default.ApplicationConfiguration
             );
         }
-        return new ApplicationConfiguration();
+        var configuration = new ApplicationConfiguration();
+        var json = JsonSerializer.Serialize(
+            configuration,
+            ApplicationConfigurationJsonContext.Pretty.ApplicationConfiguration
+        ) + Environment.NewLine;
+        File.WriteAllText(Defaults.configurationJsonPath, json);
+        ConsoleHelpers.Info($"Created default application configuration file at '{Defaults.configurationJsonPath}'.");
+        return configuration;
     }
 }

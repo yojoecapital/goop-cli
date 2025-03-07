@@ -84,7 +84,7 @@ namespace GoogleDrivePushCli.Utilities
 
         public static Stack<RemoteItem> Navigate(string path, Configuration configuration = null)
         {
-            var history = DataAccessManager.Instance.GetRemoteItemsFromPath(path);
+            var history = DataAccessService.Instance.GetRemoteItemsFromPath(path);
             if (history.Count == 0) throw new Exception("Nothing to navigate");
             if (history.Peek() is not RemoteFolder)
             {
@@ -98,7 +98,7 @@ namespace GoogleDrivePushCli.Utilities
                 var choices = new List<NavigationChoice>();
                 if (history.Count > 1) choices.Add(NavigationChoice.goUp);
                 if (!configuration.onlyDisplayFiles) choices.Add(NavigationChoice.SelectThis(history.Peek(), configuration.selectThisText));
-                DataAccessManager.Instance.GetRemoteFolder(history.Peek().Id, out var remoteFiles, out var remoteFolders);
+                DataAccessService.Instance.GetRemoteFolder(history.Peek().Id, out var remoteFiles, out var remoteFolders);
                 if (!configuration.onlyDisplayFolders) choices.AddRange(remoteFiles.Select(remoteFiles => new NavigationChoice(remoteFiles)));
                 choices.AddRange(remoteFolders.Select(remoteFolder => new NavigationChoice(remoteFolder)));
                 choices.Add(NavigationChoice.cancel);

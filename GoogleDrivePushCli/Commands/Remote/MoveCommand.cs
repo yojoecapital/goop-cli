@@ -39,8 +39,8 @@ public class MoveCommand : Command
             if (history.Peek() is not RemoteFolder) history.Pop();
             defaultPath = NavigationHelper.GetPathFromStack(history);
         }
-        else remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
-        if (remoteItem.Id == DataAccessManager.Instance.RootId) throw new Exception("Cannot move root folder");
+        else remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
+        if (remoteItem.Id == DataAccessService.Instance.RootId) throw new Exception("Cannot move root folder");
         if (string.IsNullOrEmpty(folderPath) || isInteractive)
         {
             if (string.IsNullOrEmpty(folderPath)) folderPath = defaultPath;
@@ -55,12 +55,12 @@ public class MoveCommand : Command
             )?.Peek();
             if (remoteFolder == null) return;
         }
-        else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(folderPath).Peek();
+        else remoteFolder = DataAccessService.Instance.GetRemoteItemsFromPath(folderPath).Peek();
         if (remoteFolder is not RemoteFolder)
         {
             throw new Exception($"Folder path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
         }
-        DataAccessManager.Instance.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
+        DataAccessService.Instance.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
         Console.WriteLine($"Moved '{remoteItem.Name}' into '{remoteFolder.Name}'.");
     }
 }

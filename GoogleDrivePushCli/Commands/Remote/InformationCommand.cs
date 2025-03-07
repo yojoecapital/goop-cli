@@ -1,4 +1,7 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.CommandLine;
+using System.Linq;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
@@ -27,13 +30,15 @@ public class InformationCommand : Command
             isInteractive = true;
             path = "/";
         }
-        RemoteItem remoteItem;
+        Stack<RemoteItem> remoteItems;
         if (isInteractive)
         {
-            remoteItem = NavigationHelper.Navigate(path)?.Peek();
-            if (remoteItem == null) return;
+            remoteItems = NavigationHelper.Navigate(path);
+            if (remoteItems == null) return;
         }
-        else remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+        else remoteItems = DataAccessService.Instance.GetRemoteItemsFromPath(path);
+        var remoteItem = remoteItems.Peek();
+        var remotePath = $"{string.Join('/', remoteItems.Select(remoteItem => remoteItem.Name).Reverse())}";
         var grid = new Grid();
         grid.AddColumn();
         grid.AddColumn();
@@ -44,12 +49,14 @@ public class InformationCommand : Command
             grid.AddRow(["[bold]MIME type[/]", $": {remoteFile.MimeType}"]);
             grid.AddRow(["[bold]Modified time[/]", $": {remoteFile.ModifiedTime}"]);
             grid.AddRow(["[bold]Size[/]", $": {remoteFile.Size.ToFileSize()}"]);
+            grid.AddRow(["[bold]Path[/]", $": {remotePath}"]);
         }
         else
         {
             grid.AddRow(["[bold]ID[/]", $": {remoteItem.Id}"]);
             grid.AddRow(["[bold]Name[/]", $": {remoteItem.Name.EscapeMarkup()}"]);
             grid.AddRow(["[bold]MIME type[/]", $": {RemoteFolder.MimeType}"]);
+            grid.AddRow(["[bold]Path[/]", $": {remotePath}"]);
         }
         AnsiConsole.Write(grid);
     }

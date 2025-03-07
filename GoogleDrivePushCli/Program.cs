@@ -5,6 +5,7 @@ using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.IO;
 using System.Threading.Tasks;
+using GoogleDrivePushCli.Commands;
 using GoogleDrivePushCli.Commands.Remote;
 using GoogleDrivePushCli.Utilities;
 
@@ -20,7 +21,9 @@ namespace GoogleDrivePushCli
         {
             var rootCommand = new RootCommand($"The {Defaults.applicationName} is a simple tool for syncing files between a local directory and Google Drive.")
             {
-                new RemoteCommands()
+                new RemoteCommands(),
+                new InitializeCommand(),
+                new PullCommand()
             };
             rootCommand.AddGlobalOption(verboseOption);
 
@@ -35,8 +38,6 @@ namespace GoogleDrivePushCli
 
             return cli.Invoke(args);
         }
-
-        private static string GetEnvironmentCurrentDirectory() => Environment.CurrentDirectory;
 
         private static Task InitializeHandler(InvocationContext context, Func<InvocationContext, Task> next)
         {
@@ -58,11 +59,12 @@ namespace GoogleDrivePushCli
             return next(context);
         }
 
-        private static void ExceptionHandler(Exception ex, InvocationContext context)
+        private static void ExceptionHandler(Exception exception, InvocationContext context)
         {
-            ConsoleHelpers.Error(ex.Message);
+            string message = exception.Message.EndsWith('.') ? exception.Message : $"{exception.Message}.";
+            ConsoleHelpers.Error(message);
 #if DEBUG
-            Console.WriteLine(ex.StackTrace);
+            Console.WriteLine(exception.StackTrace);
 #endif
             context.ExitCode = 1;
         }

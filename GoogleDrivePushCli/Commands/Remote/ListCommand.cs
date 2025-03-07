@@ -21,13 +21,13 @@ public class ListCommand : Command
 
     private static void Handle(string path)
     {
-        var remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+        var remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
         if (remoteItem is not RemoteFolder)
         {
             Console.WriteLine(remoteItem);
             return;
         }
-        DataAccessManager.Instance.GetRemoteFolder(remoteItem.Id, out var remoteFiles, out var remoteFolders);
+        DataAccessService.Instance.GetRemoteFolder(remoteItem.Id, out var remoteFiles, out var remoteFolders);
         foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
         foreach (var remoteFolder in remoteFolders) Console.WriteLine(remoteFolder);
     }

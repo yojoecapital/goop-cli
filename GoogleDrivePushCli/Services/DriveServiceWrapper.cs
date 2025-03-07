@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
@@ -17,7 +18,6 @@ public class DriveServiceWrapper : IDataAccessService
 {
     private readonly DriveService service;
     private readonly UserCredential credential;
-    private static readonly string rootIdAlias = "root";
     private static readonly string defaultFolderFields = "id, name, trashed, parents";
     private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
     private static readonly string[] driveScopes = [DriveService.Scope.Drive];
@@ -313,5 +313,16 @@ public class DriveServiceWrapper : IDataAccessService
         else return RemoteFile.CreateFrom(googleDriveItem);
     }
 
-    public RemoteFolder GetRootFolder() => (RemoteFolder)GetRemoteItem(rootIdAlias);
+    public RemoteFolder GetRootFolder() => (RemoteFolder)GetRemoteItem(Defaults.rootIdAlias);
+
+    private string rootId;
+
+    public string RootId
+    {
+        get
+        {
+            rootId ??= GetRootFolder().Id;
+            return rootId;
+        }
+    }
 }

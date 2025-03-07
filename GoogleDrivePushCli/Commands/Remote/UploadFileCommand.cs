@@ -55,7 +55,7 @@ public class UploadFileCommand : Command
             )?.Peek();
             if (remoteFolder == null) return;
         }
-        else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(remoteFolderPath).Peek();
+        else remoteFolder = DataAccessService.Instance.GetRemoteItemsFromPath(remoteFolderPath).Peek();
         if (remoteFolder is not RemoteFolder)
         {
             throw new Exception($"Remote path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
@@ -64,16 +64,16 @@ public class UploadFileCommand : Command
         try
         {
             var possibleDuplicateFile = $"{remoteFolderPath}/{fileName}";
-            DataAccessManager.Instance.GetRemoteItemsFromPath(possibleDuplicateFile).Peek();
+            DataAccessService.Instance.GetRemoteItemsFromPath(possibleDuplicateFile).Peek();
         }
         catch (FileNotFoundException)
         {
             if (
                 !skipConfirmation &&
-                !AnsiConsole.Confirm($"A remote file named '{fileName}' already exists in '{remoteFolder.Name}' ({remoteFolder.Id}). Do you want to upload a duplicate?", false)
+                !AnsiConsole.Confirm($"A remote file named '{fileName}' already exists in '{remoteFolder.Name}' ({remoteFolder.Id}). Upload a duplicate?", false)
             ) return;
         }
-        AnsiConsole.Status().Start($"Uploading '{fileName}'...", _ => DataAccessManager.Instance.UpdateRemoteFile(remoteFolder.Id, localPath));
+        AnsiConsole.Status().Start($"Uploading '{fileName}'...", _ => DataAccessService.Instance.UpdateRemoteFile(remoteFolder.Id, localPath));
         Console.WriteLine($"Uploaded '{fileName}' to remote folder '{remoteFolder.Name}' ({remoteFolder.Id}).");
     }
 }

@@ -48,7 +48,7 @@ public class MakeFolderCommand : Command
             )?.Peek();
             if (remoteFolder == null) return;
         }
-        else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+        else remoteFolder = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
         if (remoteFolder is not RemoteFolder)
         {
             throw new Exception($"Path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
@@ -57,6 +57,6 @@ public class MakeFolderCommand : Command
         {
             name = AnsiConsole.Prompt(new TextPrompt<string>("Enter the new folder's name:"));
         }
-        DataAccessManager.Instance.CreateRemoteFolder(remoteFolder.Id, name);
+        DataAccessService.Instance.CreateRemoteFolder(remoteFolder.Id, name);
     }
 }

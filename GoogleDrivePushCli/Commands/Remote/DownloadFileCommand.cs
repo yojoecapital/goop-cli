@@ -51,7 +51,7 @@ public class DownloadFileCommand : Command
             )?.Peek();
             if (remoteFile == null) return;
         }
-        else remoteFile = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+        else remoteFile = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
         if (remoteFile is not RemoteFile)
         {
             throw new Exception($"Path argument must be a remote file. Remote item '{remoteFile.Name}' ({remoteFile.Id}) is not a file");
@@ -61,10 +61,11 @@ public class DownloadFileCommand : Command
             localPath = Path.Join(localPath, remoteFile.Name);
         }
         if (
-            File.Exists(localPath) && !skipConfirmation &&
-            !AnsiConsole.Confirm($"A file already exists at '{localPath}'. Are you sure you want to replace it?", false)
+            File.Exists(localPath) &&
+            !skipConfirmation &&
+            !AnsiConsole.Confirm($"A file already exists at '{localPath}'. Replace it?", false)
         ) return;
-        AnsiConsole.Status().Start($"Downloading '{remoteFile.Name}'...", _ => DataAccessManager.Instance.DownloadFile(remoteFile.Id, localPath));
+        AnsiConsole.Status().Start($"Downloading '{remoteFile.Name}'...", _ => DataAccessService.Instance.DownloadFile(remoteFile.Id, localPath));
         Console.WriteLine($"Downloaded remote file '{remoteFile.Name}' ({remoteFile.Id}) to '{localPath}'.");
     }
 }

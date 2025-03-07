@@ -18,7 +18,7 @@ public class RemoteFile : RemoteItem
             Id = googleDriveFile.Id,
             Name = googleDriveFile.Name,
             MimeType = googleDriveFile.MimeType,
-            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.DateTime,
+            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.UtcDateTime,
             Size = googleDriveFile.Size.Value,
             FolderId = googleDriveFile.Parents?.FirstOrDefault()
         };

@@ -10,22 +10,24 @@ using System.Linq;
 
 namespace GoogleDrivePushCli.Services;
 
-public class DataAccessManager : IDataAccessService
+public class DataAccessService : IDataAccessService
 {
     private readonly RootCacheRepository rootCacheRepository;
     private readonly RemoteFileCacheRepository remoteFileCacheRepository;
     private readonly RemoteFolderCacheRepository remoteFolderCacheRepository;
 
-    private readonly CacheConfiguration cacheConfiguration = ApplicationConfiguration.Instance.Cache;
+    private static readonly CacheConfiguration cacheConfiguration = ApplicationConfiguration.Instance.Cache;
     private readonly RootCache rootCache;
     private readonly SqliteConnection connection;
 
-    private static DataAccessManager instance;
-    public static DataAccessManager Instance
+    private static IDataAccessService instance;
+    public static IDataAccessService Instance
     {
         get
         {
-            instance ??= new DataAccessManager();
+            instance ??= cacheConfiguration.Enabled ?
+                new DataAccessService() :
+                new DriveServiceWrapper();
             return instance;
         }
     }
@@ -40,7 +42,7 @@ public class DataAccessManager : IDataAccessService
         }
     }
 
-    private DataAccessManager()
+    private DataAccessService()
     {
         // Create tables if database file doesn't exist
         var shouldCreateTables = !File.Exists(Defaults.cacheDatabasePath);
@@ -255,33 +257,4 @@ public class DataAccessManager : IDataAccessService
     }
 
     public void EmptyTrash() => DriveServiceWrapper.EmptyTrash();
-
-    private readonly string driveRoot = "My Drive";
-
-
-    public Stack<RemoteItem> GetRemoteItemsFromPath(string path) => GetRemoteItemsFromPath(path, RootId);
-
-    public Stack<RemoteItem> GetRemoteItemsFromPath(string path, string startingId)
-    {
-        if (string.IsNullOrWhiteSpace(path)) throw new Exception("Cannot process an empty path");
-        var stack = new Stack<RemoteItem>();
-        if (path.StartsWith(driveRoot)) path = path.ReplaceFirst(driveRoot, "/");
-        else if (!path.StartsWith('/')) path = $"/{path}";
-        var parts = path.Split('/').Where(p => !string.IsNullOrEmpty(p));
-        string currentId = startingId;
-        RemoteItem match = GetRemoteItem(startingId);
-        foreach (var part in parts)
-        {
-            var remoteFolder = GetRemoteFolder(currentId, out var remoteFiles, out var remoteFolders);
-            stack.Push(remoteFolder);
-            match = (RemoteItem)remoteFolders
-                .FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase)) ??
-                remoteFiles
-                .FirstOrDefault(x => x.Name.Equals(part, StringComparison.OrdinalIgnoreCase)) ??
-                throw new FileNotFoundException($"No item matched for '{part}' in path '{path}'");
-            currentId = match.Id;
-        }
-        stack.Push(match);
-        return stack;
-    }
 }

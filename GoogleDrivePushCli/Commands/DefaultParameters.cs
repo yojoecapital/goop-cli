@@ -36,5 +36,13 @@ namespace GoogleDrivePushCli.Commands
             Directory.GetCurrentDirectory,
             "The working directory to use."
         );
+
+        public static readonly Option<string> operationsOption = new(
+            ["--operations", "-x"],
+            () => "cud",
+            @"The operations to perform, represented as a string. 
+'c' stands for create, 'u' for update, and 'd' for delete. 
+Default is 'cud' (create, update, delete)."
+        );
     }
 }

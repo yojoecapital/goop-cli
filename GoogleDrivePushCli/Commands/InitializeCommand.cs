@@ -35,6 +35,12 @@ public class InitializeCommand : Command
 
     private static void Handle(string remoteFolderPath, int depth, bool isInteractive, string workingDirectory)
     {
+        var directory = SyncFolder.FindParentDirectory(workingDirectory);
+        if (directory != null)
+        {
+            throw new Exception($"A '{Defaults.syncFolderFileName}' file already exists in '{directory}'");
+        }
+        Directory.CreateDirectory(workingDirectory);
         if (string.IsNullOrEmpty(remoteFolderPath))
         {
             isInteractive = true;
@@ -53,17 +59,12 @@ public class InitializeCommand : Command
             )?.Peek();
             if (remoteFolder == null) return;
         }
-        else remoteFolder = DataAccessManager.Instance.GetRemoteItemsFromPath(remoteFolderPath).Peek();
+        else remoteFolder = DataAccessService.Instance.GetRemoteItemsFromPath(remoteFolderPath).Peek();
         if (remoteFolder is not RemoteFolder)
         {
             throw new Exception($"Path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
         }
-        var syncFolder = SyncFolder.Read(workingDirectory);
-        if (syncFolder != null)
-        {
-            throw new Exception($"A '{Defaults.syncFolderFileName}' file already exists in '{workingDirectory}'");
-        }
-        syncFolder = new()
+        var syncFolder = new SyncFolder()
         {
             FolderId = remoteFolder.Id,
             Depth = depth

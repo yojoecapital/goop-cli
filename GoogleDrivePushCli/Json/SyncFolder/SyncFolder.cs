@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -19,41 +20,35 @@ public class SyncFolder
 
     public static SyncFolder Read(string workingDirectory)
     {
-        var directory = FindParentDirectoryContainingFile(
-            workingDirectory,
-            Defaults.syncFolderFileName,
-            ApplicationConfiguration.Instance.MaxDepth
-        );
-        if (directory == null) return null;
+        var directory = FindParentDirectory(workingDirectory) ??
+            throw new FileNotFoundException($"A '{Defaults.syncFolderFileName}' file does exist in {workingDirectory}");
         var syncFolderFilePath = Path.Join(directory, Defaults.syncFolderFileName);
         var syncFolder = JsonSerializer.Deserialize(
             File.ReadAllText(syncFolderFilePath),
             SyncFolderJsonContext.Default.SyncFolder
         );
         syncFolder.LocalDirectory = directory;
-        if (IgnoreListService.ExistsInDirectory(directory))
-        {
-            syncFolder.IgnoreListService = new IgnoreListService(directory);
-        }
+        syncFolder.IgnoreListService = new IgnoreListService(directory);
         return syncFolder;
     }
 
     public void Save(string workingDirectory)
     {
         var syncFolderFilePath = Path.Join(workingDirectory, Defaults.syncFolderFileName);
-        var json = JsonSerializer.Serialize(this, SyncFolderJsonContext.Default.SyncFolder);
+        var json = JsonSerializer.Serialize(this, SyncFolderJsonContext.Pretty.SyncFolder) + Environment.NewLine;
         File.WriteAllText(syncFolderFilePath, json);
     }
 
     public void Save() => Save(LocalDirectory);
 
-    private static string FindParentDirectoryContainingFile(string startDirectory, string fileName, int maxDepth)
+    public static string FindParentDirectory(string startDirectory)
     {
+        var maxDepth = ApplicationConfiguration.Instance.MaxDepth;
         string currentDirectory = startDirectory;
         int depth = 0;
         while (currentDirectory != null && depth <= maxDepth)
         {
-            string filePath = Path.Combine(currentDirectory, fileName);
+            string filePath = Path.Combine(currentDirectory, Defaults.syncFolderFileName);
             if (File.Exists(filePath))
             {
                 return currentDirectory;

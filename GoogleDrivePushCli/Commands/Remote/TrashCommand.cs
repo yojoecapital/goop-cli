@@ -48,21 +48,21 @@ public class TrashCommand : Command
         }
         else if (!string.IsNullOrEmpty(path))
         {
-            remoteItem = DataAccessManager.Instance.GetRemoteItemsFromPath(path).Peek();
+            remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
         }
         if (remoteItem != null)
         {
-            if (remoteItem.Id == DataAccessManager.Instance.RootId)
+            if (remoteItem.Id == DataAccessService.Instance.RootId)
             {
                 throw new Exception("Cannot trash root folder");
             }
-            DataAccessManager.Instance.TrashRemoteItem(remoteItem.Id);
+            DataAccessService.Instance.TrashRemoteItem(remoteItem.Id);
         }
 
         // handle the list option
         if (shouldList)
         {
-            DataAccessManager.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
+            DataAccessService.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
             if (shouldEmpty) Console.ForegroundColor = ConsoleColor.Red;
             foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
             foreach (var remoteFolder in remoteFolders) Console.WriteLine(remoteFolder);
@@ -72,9 +72,9 @@ public class TrashCommand : Command
         // handle the empty option
         if (shouldEmpty)
         {
-            if (skipConfirmation || AnsiConsole.Confirm("Are you sure you want to empty the trash?", false))
+            if (skipConfirmation || AnsiConsole.Confirm("Empty the trash?", false))
             {
-                DataAccessManager.Instance.EmptyTrash();
+                DataAccessService.Instance.EmptyTrash();
             }
         }
     }
