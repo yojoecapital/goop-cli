@@ -1,18 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using GoogleDrivePushCli.Json.Configuration;
 using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace GoogleDrivePushCli.Services;
 
 public class IgnoreListService
 {
-    private readonly string directory;
     private readonly Matcher matcher = new();
+    private readonly List<string> autoIgnoreList = ApplicationConfiguration.Instance.AutoIgnoreList;
 
     public IgnoreListService(string directory)
     {
-        this.directory = directory;
         var filePath = Path.Join(directory, Defaults.ignoreListFileName);
         if (File.Exists(filePath))
         {
@@ -20,6 +21,10 @@ public class IgnoreListService
             {
                 matcher.AddInclude(pattern);
             }
+        }
+        foreach (var pattern in autoIgnoreList)
+        {
+            matcher.AddInclude(pattern);
         }
     }
 

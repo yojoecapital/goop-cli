@@ -73,7 +73,11 @@ public class UploadFileCommand : Command
                 !AnsiConsole.Confirm($"A remote file named '{fileName}' already exists in '{remoteFolder.Name}' ({remoteFolder.Id}). Upload a duplicate?", false)
             ) return;
         }
-        AnsiConsole.Status().Start($"Uploading '{fileName}'...", _ => DataAccessService.Instance.UpdateRemoteFile(remoteFolder.Id, localPath));
+        AnsiConsole.Progress().Start(context =>
+        {
+            var task = context.AddTask($"Uploading '{fileName}'", maxValue: 1);
+            Operation.Run(progress => DataAccessService.Instance.UpdateRemoteFile(remoteFolder.Id, localPath, progress), task);
+        });
         Console.WriteLine($"Uploaded '{fileName}' to remote folder '{remoteFolder.Name}' ({remoteFolder.Id}).");
     }
 }

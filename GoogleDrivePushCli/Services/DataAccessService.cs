@@ -110,17 +110,17 @@ public class DataAccessService : IDataAccessService
 
     private bool CacheIsExpired => rootCache.Timestamp.IsExpired(cacheConfiguration.Ttl);
 
-    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath)
+    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = DriveServiceWrapper.UpdateRemoteFile(remoteFileId, localFilePath);
+        var remoteFile = DriveServiceWrapper.UpdateRemoteFile(remoteFileId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Upsert(remoteFile);
         return remoteFile;
     }
 
-    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath)
+    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = DriveServiceWrapper.CreateRemoteFile(remoteFolderId, localFilePath);
+        var remoteFile = DriveServiceWrapper.CreateRemoteFile(remoteFolderId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Insert(remoteFile);
         return remoteFile;
@@ -137,7 +137,10 @@ public class DataAccessService : IDataAccessService
         return remoteFolder;
     }
 
-    public void DownloadFile(string remoteFileId, string path) => DriveServiceWrapper.DownloadFile(remoteFileId, path);
+    public void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
+    {
+        DriveServiceWrapper.DownloadFile(remoteFile, path, progressReport);
+    }
 
     public void TrashRemoteItem(string remoteItemId)
     {

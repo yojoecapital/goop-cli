@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Download;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
@@ -102,31 +103,45 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath)
+    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
-        using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
         var body = service.Files.Get(remoteFileId).Execute();
         body.Id = null;
         body.Kind = null;
         body.Parents = null;
-        var request = service.Files.Update(body, remoteFileId, fileStream, "application/octet-stream");
+        using var stream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+        var totalSize = stream.Length;
+        var request = service.Files.Update(body, remoteFileId, stream, "application/octet-stream");
         request.Fields = defaultFileFields;
+        request.ProgressChanged += progress =>
+        {
+            if (progress.Status != UploadStatus.Uploading) return;
+            var percentage = progress.BytesSent / (double)totalSize;
+            progressReport?.Report(percentage);
+        };
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
         ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been updated successfully using '{localFilePath}'.");
         return RemoteFile.CreateFrom(request.ResponseBody);
     }
 
-    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath)
+    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
     {
         var body = new GoogleDriveFile()
         {
             Name = Path.GetFileName(localFilePath),
             Parents = [remoteFolderId]
         };
-        using var stream = new FileStream(localFilePath, FileMode.Open);
+        using var stream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+        var totalSize = stream.Length;
         var request = service.Files.Create(body, stream, "application/octet-stream");
         request.Fields = defaultFileFields;
+        request.ProgressChanged += progress =>
+        {
+            if (progress.Status != UploadStatus.Uploading) return;
+            var percentage = progress.BytesSent / (double)totalSize;
+            progressReport?.Report(percentage);
+        };
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
         ConsoleHelpers.Info($"File '{localFilePath}' has been uploaded successfully into remote file ({request.ResponseBody.Id}).");
@@ -155,22 +170,29 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void DownloadFile(string remoteFileId, string path)
+    public void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
         try
         {
             using var stream = new FileStream(path, FileMode.Create);
-            var request = service.Files.Get(remoteFileId);
+            var totalSize = remoteFile.Size;
+            var request = service.Files.Get(remoteFile.Id);
+            request.MediaDownloader.ProgressChanged += progress =>
+            {
+                if (progress.Status != DownloadStatus.Downloading) return;
+                var percentage = progress.BytesDownloaded / (double)totalSize;
+                progressReport?.Report(percentage);
+            };
             request.Download(stream);
-            ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been successfully downloaded to '{path}'.");
+            ConsoleHelpers.Info($"Remote file ({remoteFile.Id}) has been successfully downloaded to '{path}'.");
         }
         catch (IOException)
         {
-            throw new Exception($"Failed to save downloaded remote file ({remoteFileId}) due to an IO error");
+            throw new Exception($"Failed to save downloaded remote file ({remoteFile.Id}) due to an IO error");
         }
         catch (Exception)
         {
-            throw new Exception($"Failed to download remote file ({remoteFileId}) to '{path}'");
+            throw new Exception($"Failed to download remote file ({remoteFile.Id}) to '{path}'");
         }
     }
 

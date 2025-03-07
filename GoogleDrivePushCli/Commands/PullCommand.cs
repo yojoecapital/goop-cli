@@ -54,25 +54,22 @@ public class PullCommand : Command
             return;
         }
 
-        AnsiConsole.Progress().Start(ctx =>
+        AnsiConsole.Progress().Start(context =>
         {
-            var createTask = createOperations.Count > 0 ? ctx.AddTask("[green]Creating items[/]", maxValue: createOperations.Count) : null;
-            var updateTask = updateOperations.Count > 0 ? ctx.AddTask("[yellow]Updating items[/]", maxValue: updateOperations.Count) : null;
-            var deleteTask = deleteOperations.Count > 0 ? ctx.AddTask("[red]Deleting items[/]", maxValue: updateOperations.Count) : null;
-            foreach (var op in createOperations)
+            var createTask = createOperations.Count > 0 ? context.AddTask("[green]Creating items[/]", maxValue: createOperations.Count) : null;
+            var updateTask = updateOperations.Count > 0 ? context.AddTask("[yellow]Updating items[/]", maxValue: updateOperations.Count) : null;
+            var deleteTask = deleteOperations.Count > 0 ? context.AddTask("[red]Deleting items[/]", maxValue: updateOperations.Count) : null;
+            foreach (var operation in createOperations)
             {
-                op.Action.Invoke();
-                createTask.Increment(1);
+                operation.Run(createTask);
             }
-            foreach (var op in updateOperations)
+            foreach (var operation in updateOperations)
             {
-                op.Action.Invoke();
-                updateTask.Increment(1);
+                operation.Run(updateTask);
             }
-            foreach (var op in deleteOperations)
+            foreach (var operation in deleteOperations)
             {
-                op.Action.Invoke();
-                deleteTask.Increment(1);
+                operation.Run(deleteTask);
             }
         });
     }
@@ -112,21 +109,19 @@ public class PullCommand : Command
                 // File was edited
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
                 if (lastWriteTime >= remoteFile.ModifiedTime) continue;
-                var operation = new Operation()
-                {
-                    Action = () => DataAccessService.Instance.DownloadFile(remoteFile.Id, fileFullPath),
-                    Description = $"Local file '{fileRelativePath}'.",
-                };
+                var operation = new Operation(
+                    $"Local file '{fileRelativePath}'.",
+                    progress => DataAccessService.Instance.DownloadFile(remoteFile, fileFullPath, progress)
+                );
                 updateOperations.Add(operation);
             }
             else
             {
                 // File was created
-                var operation = new Operation()
-                {
-                    Action = () => DataAccessService.Instance.DownloadFile(remoteFile.Id, fileFullPath),
-                    Description = $"Local file '{fileRelativePath}'.",
-                };
+                var operation = new Operation(
+                    $"Local file '{fileRelativePath}'.",
+                    progress => DataAccessService.Instance.DownloadFile(remoteFile, fileFullPath, progress)
+                );
                 createOperations.Add(operation);
             }
         }
@@ -142,11 +137,10 @@ public class PullCommand : Command
             if (remoteItems.Contains(fileName)) continue;
 
             // File was deleted
-            var operation = new Operation()
-            {
-                Action = () => File.Delete(fileFullPath),
-                Description = $"Local file '{fileRelativePath}'.",
-            };
+            var operation = new Operation(
+                $"Local file '{fileRelativePath}'.",
+                () => File.Delete(fileFullPath)
+            );
             deleteOperations.Add(operation);
         }
         if (depth >= syncFolder.Depth) return;
@@ -164,11 +158,10 @@ public class PullCommand : Command
             if (remoteItems.Contains(folderName)) continue;
 
             // The folder was deleted
-            var operation = new Operation()
-            {
-                Action = () => Directory.Delete(folderFullPath, true),
-                Description = $"Local folder '{folderRelativePath}'.",
-            };
+            var operation = new Operation(
+                $"Local folder '{folderRelativePath}'.",
+                () => Directory.Delete(folderFullPath, true)
+            );
             deleteOperations.Add(operation);
         }
         foreach (var remoteFolder in remoteFolders)

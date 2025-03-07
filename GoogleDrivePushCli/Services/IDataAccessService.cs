@@ -9,13 +9,13 @@ namespace GoogleDrivePushCli.Services;
 
 public interface IDataAccessService
 {
-    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath);
+    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport);
 
-    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath);
+    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport);
 
     public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName);
 
-    public void DownloadFile(string remoteFileId, string path);
+    public void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport);
 
     public void TrashRemoteItem(string remoteItemId);
 

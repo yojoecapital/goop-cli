@@ -38,10 +38,10 @@ public class DownloadFileCommand : Command
             isInteractive = true;
             path = "/";
         }
-        RemoteItem remoteFile;
+        RemoteItem remoteItem;
         if (isInteractive)
         {
-            remoteFile = NavigationHelper.Navigate(
+            remoteItem = NavigationHelper.Navigate(
                 path,
                 new()
                 {
@@ -49,12 +49,12 @@ public class DownloadFileCommand : Command
                     onlyDisplayFiles = true
                 }
             )?.Peek();
-            if (remoteFile == null) return;
+            if (remoteItem == null) return;
         }
-        else remoteFile = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
-        if (remoteFile is not RemoteFile)
+        else remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
+        if (remoteItem is not RemoteFile remoteFile)
         {
-            throw new Exception($"Path argument must be a remote file. Remote item '{remoteFile.Name}' ({remoteFile.Id}) is not a file");
+            throw new Exception($"Path argument must be a remote file. Remote item '{remoteItem.Name}' ({remoteItem.Id}) is not a file");
         }
         if (Directory.Exists(localPath))
         {
@@ -65,7 +65,11 @@ public class DownloadFileCommand : Command
             !skipConfirmation &&
             !AnsiConsole.Confirm($"A file already exists at '{localPath}'. Replace it?", false)
         ) return;
-        AnsiConsole.Status().Start($"Downloading '{remoteFile.Name}'...", _ => DataAccessService.Instance.DownloadFile(remoteFile.Id, localPath));
+        AnsiConsole.Progress().Start(context =>
+        {
+            var task = context.AddTask($"Downloading '{remoteFile.Name}'", maxValue: 1);
+            Operation.Run(progress => DataAccessService.Instance.DownloadFile(remoteFile, localPath, progress), task);
+        });
         Console.WriteLine($"Downloaded remote file '{remoteFile.Name}' ({remoteFile.Id}) to '{localPath}'.");
     }
 }

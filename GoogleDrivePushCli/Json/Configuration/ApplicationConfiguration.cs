@@ -12,7 +12,10 @@ public class ApplicationConfiguration
     [JsonPropertyName("cache")]
     public CacheConfiguration Cache { get; set; } = new();
     [JsonPropertyName("auto_ignore_list")]
-    public List<string> AutoIgnoreList { get; set; } = [Defaults.syncFolderFileName];
+    public List<string> AutoIgnoreList { get; set; } = [
+        Defaults.syncFolderFileName,
+        Defaults.ignoreListFileName
+    ];
 
     [JsonPropertyName("default_depth")]
     public int DefaultDepth { get; set; } = 3;
