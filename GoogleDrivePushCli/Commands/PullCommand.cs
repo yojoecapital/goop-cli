@@ -160,6 +160,8 @@ public class PullCommand : Command
             // Check if folder exists
             if (!Directory.Exists(folderFullPath))
             {
+                if (!allowedOperationTypes.Contains(OperationType.Create)) continue;
+
                 // Folder was created
                 var operation = new Operation(
                     $"Local folder '{Path.Join(folderRelativePath, "**")}'.",

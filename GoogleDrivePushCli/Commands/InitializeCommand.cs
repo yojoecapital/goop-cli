@@ -67,6 +67,6 @@ public class InitializeCommand : Command
             Depth = depth
         };
         syncFolder.Save(workingDirectory);
-        Console.WriteLine($"Initialized sync folder at {workingDirectory}. Ready to pull.");
+        Console.WriteLine($"Initialized sync folder at '{workingDirectory}'. Ready to pull.");
     }
 }

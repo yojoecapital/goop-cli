@@ -161,6 +161,8 @@ public class PushCommand : Command
             // Check if folder exists
             if (!remoteFolderMap.TryGetValue(folderName, out RemoteFolder remoteFolder))
             {
+                if (!allowedOperationTypes.Contains(OperationType.Create)) continue;
+
                 // Folder was created
                 var operation = new Operation(
                     $"Remote folder '{Path.Join(folderRelativePath, "**")}'.",

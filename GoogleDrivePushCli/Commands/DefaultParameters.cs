@@ -34,12 +34,11 @@ namespace GoogleDrivePushCli.Commands
             ["--operations", "-x"],
             () => "cud",
             @"The operations to perform, represented as a string. 
-'c' stands for create, 'u' for update, and 'd' for delete. 
-Default is 'cud' (create, update, delete)."
+'c' stands for create, 'u' for update, and 'd' for delete."
         );
 
         public static readonly Option<string[]> ignoreOption = new(
-            "--ignore",
+            ["--ignore", "-i"],
             "Ignore additional paths from being processed."
         )
         {
