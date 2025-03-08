@@ -1,4 +1,4 @@
-bin/
+GoogleDrivePushCli/bin/
 .vs/
-obj/
-credentials.json
+GoogleDrivePushCli/obj/
+**/credentials.json

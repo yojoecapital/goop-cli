@@ -35,11 +35,7 @@ goop --help
 
 ### Initialize
 
-Use `initialize <folderId>` or `init <folderId>` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull --yes` to download the remote files onto your system.
-
-### Fetch
-
-Use `fetch` to update the Google Drive cache in the metadata file. Both the push and pull commands determine what to push and pull based on this cache.
+Use `initialize` or `init` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull` to download the remote files onto your system.
 
 ### Push
 
@@ -49,14 +45,34 @@ Use `push` to upload local changes to the linked Google Drive folder. Passing `-
 
 Use `pull` to download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
 
-### Ignore
+## Configuring
 
-Use `ignore <path>` to add an item with the path `<path>` to the ignored list. Files under the ignored list will not be pulled or pushed. Passing `--remove` will remove the file from the ignored list.
+- a cache is stored under `~/.conflig/goop-cli/cache.db`. You can delete this file any time to clear it
+- there are additional configuration options in `~/.conflig/goop-cli/config.json`
+
+```json
+{
+  "cache": {
+    "ttl": 300000, // the cache's time to live in milliseconds
+    "enabled": true 
+  },
+  "auto_ignore_list": [ // ignore these files when syncing folders
+    ".goop",
+    ".goopignore"
+  ],
+  "default_depth": 3, // the default depth initialized folders use
+  "max_depth": 3, // the max depth that can synced
+  "shortcut_template": null 
+}
+```
+
+- the `shortcut_template` option doesn't do anything yet. I plan on using it to define URL shortcut file templates to open files with Google native MIME types like `application/vnd.google-apps.*`
 
 ## Building
 
 To compile the project and run it as a self-contained executable:
 ```bash
+cd GoogleDrivePushCli
 dotnet publish -c Release -r linux-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
