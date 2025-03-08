@@ -40,8 +40,7 @@ public class InformationCommand : Command
         var remoteItem = remoteItems.Peek();
         var remotePath = $"{string.Join('/', remoteItems.Select(remoteItem => remoteItem.Name).Reverse())}";
         var grid = new Grid();
-        grid.AddColumn();
-        grid.AddColumn();
+        grid.AddColumns(2);
         if (remoteItem is RemoteFile remoteFile)
         {
             grid.AddRow(["[bold]ID[/]", $": {remoteFile.Id}"]);

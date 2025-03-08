@@ -12,52 +12,55 @@ using Spectre.Console;
 
 namespace GoogleDrivePushCli.Commands;
 
-public class PullCommand : Command
+public class DifferencesCommand : Command
 {
-    public PullCommand() : base("pull", "Pulls remote changes from Google Drive.")
+    public DifferencesCommand() : base("diff", "Displays the differences in the last modified times between local and remote files.")
     {
-        AddOption(DefaultParameters.operationsOption);
         AddOption(DefaultParameters.workingDirectoryOption);
-        AddOption(DefaultParameters.yesOption);
         this.SetHandler(
             Handle,
-            DefaultParameters.operationsOption,
-            DefaultParameters.workingDirectoryOption,
-            DefaultParameters.yesOption
+            DefaultParameters.workingDirectoryOption
         );
     }
 
-    private static void Handle(string operations, string workingDirectory, bool skipConfirmation)
+    private static void Handle(string workingDirectory)
     {
-        var createOperations = new List<Operation>();
-        var updateOperations = new List<Operation>();
-        var deleteOperations = new List<Operation>();
+
         var syncFolder = SyncFolder.Read(workingDirectory);
-        AggregateOperations(
-            syncFolder,
-            OperationHelpers.GetAllowedOperationTypes(operations),
-            createOperations,
-            updateOperations,
-            deleteOperations,
-            new(),
-            syncFolder.FolderId,
-            0
+        var fileDifferences = new List<FileDifference>();
+        var folderDifferences = new List<FolderDifference>();
+        AggregateDifferences(
+            syncFolder, new(),
+            fileDifferences, folderDifferences,
+            syncFolder.FolderId, 0
         );
-        OperationHelpers.PromptAndRun(
-            createOperations,
-            updateOperations,
-            deleteOperations,
-            skipConfirmation
-        );
+        var grid = new Grid();
+        grid.AddColumns(3);
+        grid.AddRow(["[bold]LOCAL[/]", "[bold]REMOTE[/]", "[bold]PATH[/]"]);
+        foreach (var fileDifference in fileDifferences)
+        {
+            grid.AddRow([
+                fileDifference.LocalDateTime?.ToLocalTime().ToString() ?? string.Empty,
+                fileDifference.RemoteDateTime?.ToLocalTime().ToString() ?? string.Empty,
+                fileDifference.Path
+            ]);
+        }
+        foreach (var folderDifference in folderDifferences)
+        {
+            grid.AddRow([
+                folderDifference.ExistsLocally ? "-" : string.Empty,
+                folderDifference.ExistsRemotely ? "-" : string.Empty,
+                folderDifference.Path
+            ]);
+        }
+        AnsiConsole.Write(grid);
     }
 
-    private static void AggregateOperations(
+    private static void AggregateDifferences(
         SyncFolder syncFolder,
-        HashSet<OperationType> allowedOperationTypes,
-        List<Operation> createOperations,
-        List<Operation> updateOperations,
-        List<Operation> deleteOperations,
         Stack<RemoteFolder> history,
+        List<FileDifference> fileDifferences,
+        List<FolderDifference> folderDifferences,
         string remoteFolderId,
         int depth
     )
@@ -87,23 +90,23 @@ public class PullCommand : Command
             if (File.Exists(fileFullPath))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (lastWriteTime >= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
-
-                // File was edited
-                var operation = new Operation(
-                    $"Local file '{fileRelativePath}'.",
-                    progress => service.DownloadFile(remoteFile, fileFullPath, progress)
-                );
-                updateOperations.Add(operation);
+                var difference = new FileDifference()
+                {
+                    LocalDateTime = lastWriteTime,
+                    RemoteDateTime = remoteFile.ModifiedTime.ToUtcDateTime(),
+                    Path = fileRelativePath
+                };
+                fileDifferences.Add(difference);
             }
-            else if (allowedOperationTypes.Contains(OperationType.Create))
+            else
             {
-                // File was created
-                var operation = new Operation(
-                    $"Local file '{fileRelativePath}'.",
-                    progress => service.DownloadFile(remoteFile, fileFullPath, progress)
-                );
-                createOperations.Add(operation);
+                var difference = new FileDifference()
+                {
+                    LocalDateTime = null,
+                    RemoteDateTime = remoteFile.ModifiedTime.ToUtcDateTime(),
+                    Path = fileRelativePath
+                };
+                fileDifferences.Add(difference);
             }
         }
         foreach (string fileFullPath in Directory.GetFiles(fullPath))
@@ -115,14 +118,15 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping local file '{fileRelativePath}'.");
                 continue;
             }
-            if (remoteItemNames.Contains(fileName) || !allowedOperationTypes.Contains(OperationType.Delete)) continue;
-
-            // File was deleted
-            var operation = new Operation(
-                $"Local file '{fileRelativePath}'.",
-                () => File.Delete(fileFullPath)
-            );
-            deleteOperations.Add(operation);
+            if (remoteItemNames.Contains(fileName)) continue;
+            var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
+            var difference = new FileDifference()
+            {
+                LocalDateTime = lastWriteTime,
+                RemoteDateTime = null,
+                Path = fileRelativePath
+            };
+            fileDifferences.Add(difference);
         }
 
         // Handle folders
@@ -135,14 +139,14 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping local folder '{folderRelativePath}'.");
                 continue;
             }
-            if (remoteItemNames.Contains(folderName) || !allowedOperationTypes.Contains(OperationType.Delete)) continue;
-
-            // The folder was deleted
-            var operation = new Operation(
-                $"Local folder '{folderRelativePath}'.",
-                () => Directory.Delete(folderFullPath, true)
-            );
-            deleteOperations.Add(operation);
+            if (remoteItemNames.Contains(folderName)) continue;
+            var difference = new FolderDifference()
+            {
+                ExistsLocally = true,
+                ExistsRemotely = false,
+                Path = Path.Join(folderRelativePath, "**")
+            };
+            folderDifferences.Add(difference);
         }
         foreach (var remoteFolder in remoteFolders)
         {
@@ -153,28 +157,25 @@ public class PullCommand : Command
                 ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
                 continue;
             }
-
-            // Check if folder exists
             if (!Directory.Exists(folderFullPath))
             {
-                // Folder was created
-                var operation = new Operation(
-                    $"Remote folder '{Path.Join(folderRelativePath, "**")}'.",
-                    progress => service.DownloadFolder(remoteFolder, folderFullPath, maxDepth - depth, progress)
-                );
-                createOperations.Add(operation);
+                var difference = new FolderDifference()
+                {
+                    ExistsLocally = false,
+                    ExistsRemotely = true,
+                    Path = Path.Join(folderRelativePath, "**")
+                };
+                folderDifferences.Add(difference);
                 continue;
             }
 
             // Tail end recursion
             history.Push(remoteFolder);
-            AggregateOperations(
+            AggregateDifferences(
                 syncFolder,
-                allowedOperationTypes,
-                createOperations,
-                updateOperations,
-                deleteOperations,
                 history,
+                fileDifferences,
+                folderDifferences,
                 remoteFolder.Id,
                 depth + 1
             );

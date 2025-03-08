@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Download;
@@ -15,7 +14,7 @@ using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli.Services;
 
-public class DriveServiceWrapper : IDataAccessService
+public class DataAccessReposityory : DataAccessBase
 {
     private readonly DriveService service;
     private readonly UserCredential credential;
@@ -23,7 +22,7 @@ public class DriveServiceWrapper : IDataAccessService
     private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
     private static readonly string[] driveScopes = [DriveService.Scope.Drive];
 
-    public DriveServiceWrapper()
+    public DataAccessReposityory()
     {
         if (!File.Exists(Defaults.credentialsPath))
         {
@@ -103,7 +102,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
+    public override RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
         var body = service.Files.Get(remoteFileId).Execute();
         body.Id = null;
@@ -123,11 +122,11 @@ public class DriveServiceWrapper : IDataAccessService
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
         ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been updated successfully using '{localFilePath}'.");
         var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
-        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime);
+        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime.ToUtcDateTime());
         return remoteFile;
     }
 
-    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
+    public override RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
     {
         var body = new GoogleDriveFile()
         {
@@ -148,11 +147,11 @@ public class DriveServiceWrapper : IDataAccessService
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
         ConsoleHelpers.Info($"File '{localFilePath}' has been uploaded successfully into remote file ({request.ResponseBody.Id}).");
         var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
-        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime);
+        File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime.ToUtcDateTime());
         return remoteFile;
     }
 
-    public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
+    public override RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
     {
         try
         {
@@ -174,13 +173,14 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
+    public override void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
         try
         {
             using var stream = new FileStream(path, FileMode.Create);
             var totalSize = remoteFile.Size;
             var request = service.Files.Get(remoteFile.Id);
+            request.Fields = defaultFileFields;
             request.MediaDownloader.ProgressChanged += progress =>
             {
                 if (progress.Status != DownloadStatus.Downloading) return;
@@ -188,7 +188,7 @@ public class DriveServiceWrapper : IDataAccessService
                 progressReport?.Report(percentage);
             };
             request.Download(stream);
-            File.SetLastWriteTimeUtc(path, remoteFile.ModifiedTime);
+            var googleDriveFile = request.Execute();
             ConsoleHelpers.Info($"Remote file ({remoteFile.Id}) has been successfully downloaded to '{path}'.");
         }
         catch (IOException)
@@ -199,9 +199,13 @@ public class DriveServiceWrapper : IDataAccessService
         {
             throw new Exception($"Failed to download remote file ({remoteFile.Id}) to '{path}'");
         }
+        finally
+        {
+            File.SetLastWriteTimeUtc(path, remoteFile.ModifiedTime.ToUtcDateTime());
+        }
     }
 
-    public void TrashRemoteItem(string remoteItemId)
+    public override void TrashRemoteItem(string remoteItemId)
     {
         try
         {
@@ -219,7 +223,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
+    public override RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
     {
         try
         {
@@ -240,7 +244,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
+    public override RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
         try
         {
@@ -259,7 +263,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
+    public override RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         var remoteitem = GetRemoteItem(remoteFolderId);
         if (remoteitem is not RemoteFolder remoteFolder)
@@ -287,7 +291,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
+    public override void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         try
         {
@@ -309,7 +313,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public void EmptyTrash()
+    public override void EmptyTrash()
     {
         try
         {
@@ -322,7 +326,7 @@ public class DriveServiceWrapper : IDataAccessService
         }
     }
 
-    public RemoteItem GetRemoteItem(string remoteItemId)
+    public override RemoteItem GetRemoteItem(string remoteItemId)
     {
         GoogleDriveFile googleDriveItem;
         try
@@ -344,7 +348,7 @@ public class DriveServiceWrapper : IDataAccessService
 
     private string rootId;
 
-    public string RootId
+    public override string RootId
     {
         get
         {

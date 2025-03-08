@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace GoogleDrivePushCli.Services;
 
-public class DataAccessService : IDataAccessService
+public class DataAccessService : DataAccessBase
 {
     private readonly RootCacheRepository rootCacheRepository;
     private readonly RemoteFileCacheRepository remoteFileCacheRepository;
@@ -20,25 +20,25 @@ public class DataAccessService : IDataAccessService
     private readonly RootCache rootCache;
     private readonly SqliteConnection connection;
 
-    private static IDataAccessService instance;
-    public static IDataAccessService Instance
+    private static DataAccessBase instance;
+    public static DataAccessBase Instance
     {
         get
         {
             instance ??= cacheConfiguration.Enabled ?
                 new DataAccessService() :
-                new DriveServiceWrapper();
+                new DataAccessReposityory();
             return instance;
         }
     }
 
-    private DriveServiceWrapper driveServiceWrapper;
-    private DriveServiceWrapper DriveServiceWrapper
+    private DataAccessReposityory reposityory;
+    private DataAccessReposityory Reposityory
     {
         get
         {
-            driveServiceWrapper ??= new();
-            return driveServiceWrapper;
+            reposityory ??= new();
+            return reposityory;
         }
     }
 
@@ -68,7 +68,7 @@ public class DataAccessService : IDataAccessService
         if (!rootCacheRepository.IsInitialized)
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var rootId = DriveServiceWrapper.GetRootFolder().Id;
+            var rootId = Reposityory.GetRootFolder().Id;
             rootCacheRepository.Model = new()
             {
                 Timestamp = timestamp,
@@ -85,15 +85,15 @@ public class DataAccessService : IDataAccessService
         }
     }
 
-    public string RootId => rootCache.RootId;
+    public override string RootId => rootCache.RootId;
 
-    public void CloseConnection()
+    public override void CloseConnection()
     {
         connection.Close();
         connection.Dispose();
     }
 
-    private void ClearCache()
+    public override void ClearCache()
     {
         remoteFileCacheRepository.DeleteAll();
         remoteFolderCacheRepository.DeleteAll();
@@ -110,25 +110,25 @@ public class DataAccessService : IDataAccessService
 
     private bool CacheIsExpired => rootCache.Timestamp.IsExpired(cacheConfiguration.Ttl);
 
-    public RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
+    public override RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = DriveServiceWrapper.UpdateRemoteFile(remoteFileId, localFilePath, progressReport);
+        var remoteFile = Reposityory.UpdateRemoteFile(remoteFileId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Upsert(remoteFile);
         return remoteFile;
     }
 
-    public RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
+    public override RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = DriveServiceWrapper.CreateRemoteFile(remoteFolderId, localFilePath, progressReport);
+        var remoteFile = Reposityory.CreateRemoteFile(remoteFolderId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Insert(remoteFile);
         return remoteFile;
     }
 
-    public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
+    public override RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
     {
-        var remoteFolder = DriveServiceWrapper.CreateRemoteFolder(parentRemoteFolderId, folderName);
+        var remoteFolder = Reposityory.CreateRemoteFolder(parentRemoteFolderId, folderName);
 
         // Populate is set because it is known that a new folder is empty
         remoteFolder.Populated = true;
@@ -137,14 +137,14 @@ public class DataAccessService : IDataAccessService
         return remoteFolder;
     }
 
-    public void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
+    public override void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
-        DriveServiceWrapper.DownloadFile(remoteFile, path, progressReport);
+        Reposityory.DownloadFile(remoteFile, path, progressReport);
     }
 
-    public void TrashRemoteItem(string remoteItemId)
+    public override void TrashRemoteItem(string remoteItemId)
     {
-        DriveServiceWrapper.TrashRemoteItem(remoteItemId);
+        Reposityory.TrashRemoteItem(remoteItemId);
 
         // If item is in the file cache, remove it
         var remoteFile = remoteFileCacheRepository.SelectByKey(remoteItemId);
@@ -160,9 +160,9 @@ public class DataAccessService : IDataAccessService
         }
     }
 
-    public RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
+    public override RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
     {
-        var remoteItem = DriveServiceWrapper.RestoreRemoteItemFromTrash(remoteItemId);
+        var remoteItem = Reposityory.RestoreRemoteItemFromTrash(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile) remoteFileCacheRepository.Upsert(remoteFile);
         else if (remoteItem is RemoteFolder remoteFolder)
@@ -173,9 +173,9 @@ public class DataAccessService : IDataAccessService
         return remoteItem;
     }
 
-    public RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
+    public override RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
-        var remoteItem = DriveServiceWrapper.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
+        var remoteItem = Reposityory.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile)
         {
@@ -189,7 +189,7 @@ public class DataAccessService : IDataAccessService
         return remoteItem;
     }
 
-    public RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
+    public override RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
         var remoteFolder = remoteFolderCacheRepository.SelectByKey(remoteFolderId);
         if (remoteFolder != null)
@@ -205,7 +205,7 @@ public class DataAccessService : IDataAccessService
                 return remoteFolder;
             }
         }
-        remoteFolder = DriveServiceWrapper.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
+        remoteFolder = Reposityory.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
         remoteFolder.Populated = true;
         var timestamp = GetNextTimestamp();
         remoteFolder.Timestamp = timestamp;
@@ -224,7 +224,7 @@ public class DataAccessService : IDataAccessService
         return remoteFolder;
     }
 
-    public RemoteItem GetRemoteItem(string remoteItemId)
+    public override RemoteItem GetRemoteItem(string remoteItemId)
     {
         var remoteFile = remoteFileCacheRepository.SelectByKey(remoteItemId);
         if (remoteFile != null)
@@ -247,17 +247,17 @@ public class DataAccessService : IDataAccessService
                 remoteFolderCacheRepository.DeleteByKey(remoteItemId);
             }
         }
-        var remoteItem = DriveServiceWrapper.GetRemoteItem(remoteItemId);
+        var remoteItem = Reposityory.GetRemoteItem(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFileToInsert) remoteFileCacheRepository.Insert(remoteFileToInsert);
         else if (remoteItem is RemoteFolder remoteFolderToInsert) remoteFolderCacheRepository.Insert(remoteFolderToInsert);
         return remoteItem;
     }
 
-    public void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
+    public override void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
-        DriveServiceWrapper.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
+        Reposityory.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
     }
 
-    public void EmptyTrash() => DriveServiceWrapper.EmptyTrash();
+    public override void EmptyTrash() => Reposityory.EmptyTrash();
 }

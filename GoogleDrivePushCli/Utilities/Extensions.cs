@@ -32,5 +32,10 @@ namespace GoogleDrivePushCli.Utilities
         {
             return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ms > ttl;
         }
+
+        public static DateTime ToUtcDateTime(this long ms)
+        {
+            return DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime;
+        }
     }
 }

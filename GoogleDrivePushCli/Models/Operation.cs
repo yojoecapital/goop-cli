@@ -1,5 +1,4 @@
 using System;
-using Spectre.Console;
 
 namespace GoogleDrivePushCli.Models;
 
@@ -19,6 +18,7 @@ public class Operation
         this.description = description;
         this.action = progress =>
         {
+            progress.Report(0);
             action.Invoke();
             progress.Report(1);
         };

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GoogleDrivePushCli.Models;
 using Spectre.Console;
 
@@ -7,6 +8,17 @@ namespace GoogleDrivePushCli.Utilities;
 
 public static class OperationHelpers
 {
+    public static HashSet<OperationType> GetAllowedOperationTypes(string operations)
+    {
+        var characters = operations.ToLower().ToHashSet();
+        var set = new HashSet<OperationType>();
+        if (characters.Remove('c')) set.Add(OperationType.Create);
+        if (characters.Remove('u')) set.Add(OperationType.Update);
+        if (characters.Remove('d')) set.Add(OperationType.Delete);
+        if (characters.Count > 0) throw new ArgumentException($"Unrecognized operation: '{characters.First()}'");
+        return set;
+    }
+
     public static void PromptAndRun(
         List<Operation> createOperations,
         List<Operation> updateOperations,
@@ -32,7 +44,7 @@ public static class OperationHelpers
         {
             var createTask = createOperations.Count > 0 ? context.AddTask("[green]Creating items[/]", maxValue: createOperations.Count) : null;
             var updateTask = updateOperations.Count > 0 ? context.AddTask("[yellow]Updating items[/]", maxValue: updateOperations.Count) : null;
-            var deleteTask = deleteOperations.Count > 0 ? context.AddTask("[red]Deleting items[/]", maxValue: updateOperations.Count) : null;
+            var deleteTask = deleteOperations.Count > 0 ? context.AddTask("[red]Deleting items[/]", maxValue: deleteOperations.Count) : null;
             foreach (var operation in createOperations)
             {
                 Run(operation.Action, createTask);

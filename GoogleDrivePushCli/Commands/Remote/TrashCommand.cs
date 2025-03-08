@@ -36,7 +36,7 @@ public class TrashCommand : Command
 
     private static void Handle(string path, bool isInteractive, bool shouldList, bool shouldEmpty, bool skipConfirmation)
     {
-        // handle the path argument
+        // Handle the path argument
         RemoteItem remoteItem = null;
         if (isInteractive || string.IsNullOrEmpty(path) && !shouldList && !shouldEmpty)
         {
@@ -59,7 +59,7 @@ public class TrashCommand : Command
             DataAccessService.Instance.TrashRemoteItem(remoteItem.Id);
         }
 
-        // handle the list option
+        // Handle the list option
         if (shouldList)
         {
             DataAccessService.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
@@ -69,7 +69,7 @@ public class TrashCommand : Command
             Console.ResetColor();
         }
 
-        // handle the empty option
+        // Handle the empty option
         if (shouldEmpty)
         {
             if (skipConfirmation || AnsiConsole.Confirm("Empty the trash?", false))

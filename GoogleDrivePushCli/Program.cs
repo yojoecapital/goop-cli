@@ -23,6 +23,7 @@ namespace GoogleDrivePushCli
             {
                 new RemoteCommands(),
                 new InitializeCommand(),
+                new DifferencesCommand(),
                 new PullCommand(),
                 new PushCommand()
             };

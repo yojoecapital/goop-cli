@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
@@ -7,7 +6,7 @@ namespace GoogleDrivePushCli.Models;
 public class RemoteFile : RemoteItem
 {
     public string MimeType { get; set; }
-    public DateTime ModifiedTime { get; set; }
+    public long ModifiedTime { get; set; }
     public long Size { get; set; }
     public bool Trashed { get; set; }
 
@@ -18,7 +17,7 @@ public class RemoteFile : RemoteItem
             Id = googleDriveFile.Id,
             Name = googleDriveFile.Name,
             MimeType = googleDriveFile.MimeType,
-            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.UtcDateTime,
+            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.ToUnixTimeMilliseconds(),
             Size = googleDriveFile.Size.Value,
             FolderId = googleDriveFile.Parents?.FirstOrDefault()
         };
