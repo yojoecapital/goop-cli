@@ -14,7 +14,7 @@ using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli.Services;
 
-public class DataAccessReposityory : DataAccessBase
+public class DataAccessRepository : DataAccessBase
 {
     private readonly DriveService service;
     private readonly UserCredential credential;
@@ -22,7 +22,7 @@ public class DataAccessReposityory : DataAccessBase
     private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
     private static readonly string[] driveScopes = [DriveService.Scope.Drive];
 
-    public DataAccessReposityory()
+    public DataAccessRepository()
     {
         if (!File.Exists(Defaults.credentialsPath))
         {
@@ -151,7 +151,7 @@ public class DataAccessReposityory : DataAccessBase
         return remoteFile;
     }
 
-    public override RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
+    public override RemoteFolder CreateEmptyRemoteFolder(string parentRemoteFolderId, string folderName)
     {
         try
         {

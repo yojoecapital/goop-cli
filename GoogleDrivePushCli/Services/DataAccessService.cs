@@ -27,18 +27,18 @@ public class DataAccessService : DataAccessBase
         {
             instance ??= cacheConfiguration.Enabled ?
                 new DataAccessService() :
-                new DataAccessReposityory();
+                new DataAccessRepository();
             return instance;
         }
     }
 
-    private DataAccessReposityory reposityory;
-    private DataAccessReposityory Reposityory
+    private DataAccessRepository repository;
+    private DataAccessRepository Repository
     {
         get
         {
-            reposityory ??= new();
-            return reposityory;
+            repository ??= new();
+            return repository;
         }
     }
 
@@ -68,7 +68,7 @@ public class DataAccessService : DataAccessBase
         if (!rootCacheRepository.IsInitialized)
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var rootId = Reposityory.GetRootFolder().Id;
+            var rootId = Repository.GetRootFolder().Id;
             rootCacheRepository.Model = new()
             {
                 Timestamp = timestamp,
@@ -112,7 +112,7 @@ public class DataAccessService : DataAccessBase
 
     public override RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = Reposityory.UpdateRemoteFile(remoteFileId, localFilePath, progressReport);
+        var remoteFile = Repository.UpdateRemoteFile(remoteFileId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Upsert(remoteFile);
         return remoteFile;
@@ -120,15 +120,15 @@ public class DataAccessService : DataAccessBase
 
     public override RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport)
     {
-        var remoteFile = Reposityory.CreateRemoteFile(remoteFolderId, localFilePath, progressReport);
+        var remoteFile = Repository.CreateRemoteFile(remoteFolderId, localFilePath, progressReport);
         remoteFile.Timestamp = GetNextTimestamp();
         remoteFileCacheRepository.Insert(remoteFile);
         return remoteFile;
     }
 
-    public override RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName)
+    public override RemoteFolder CreateEmptyRemoteFolder(string parentRemoteFolderId, string folderName)
     {
-        var remoteFolder = Reposityory.CreateRemoteFolder(parentRemoteFolderId, folderName);
+        var remoteFolder = Repository.CreateEmptyRemoteFolder(parentRemoteFolderId, folderName);
 
         // Populate is set because it is known that a new folder is empty
         remoteFolder.Populated = true;
@@ -139,12 +139,12 @@ public class DataAccessService : DataAccessBase
 
     public override void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
-        Reposityory.DownloadFile(remoteFile, path, progressReport);
+        Repository.DownloadFile(remoteFile, path, progressReport);
     }
 
     public override void TrashRemoteItem(string remoteItemId)
     {
-        Reposityory.TrashRemoteItem(remoteItemId);
+        Repository.TrashRemoteItem(remoteItemId);
 
         // If item is in the file cache, remove it
         var remoteFile = remoteFileCacheRepository.SelectByKey(remoteItemId);
@@ -162,7 +162,7 @@ public class DataAccessService : DataAccessBase
 
     public override RemoteItem RestoreRemoteItemFromTrash(string remoteItemId)
     {
-        var remoteItem = Reposityory.RestoreRemoteItemFromTrash(remoteItemId);
+        var remoteItem = Repository.RestoreRemoteItemFromTrash(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile) remoteFileCacheRepository.Upsert(remoteFile);
         else if (remoteItem is RemoteFolder remoteFolder)
@@ -175,7 +175,7 @@ public class DataAccessService : DataAccessBase
 
     public override RemoteItem MoveRemoteItem(string remoteItemId, string parentRemoteFolderId)
     {
-        var remoteItem = Reposityory.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
+        var remoteItem = Repository.MoveRemoteItem(remoteItemId, parentRemoteFolderId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFile)
         {
@@ -205,7 +205,7 @@ public class DataAccessService : DataAccessBase
                 return remoteFolder;
             }
         }
-        remoteFolder = Reposityory.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
+        remoteFolder = Repository.GetRemoteFolder(remoteFolderId, out remoteFiles, out remoteFolders);
         remoteFolder.Populated = true;
         var timestamp = GetNextTimestamp();
         remoteFolder.Timestamp = timestamp;
@@ -247,7 +247,7 @@ public class DataAccessService : DataAccessBase
                 remoteFolderCacheRepository.DeleteByKey(remoteItemId);
             }
         }
-        var remoteItem = Reposityory.GetRemoteItem(remoteItemId);
+        var remoteItem = Repository.GetRemoteItem(remoteItemId);
         remoteItem.Timestamp = GetNextTimestamp();
         if (remoteItem is RemoteFile remoteFileToInsert) remoteFileCacheRepository.Insert(remoteFileToInsert);
         else if (remoteItem is RemoteFolder remoteFolderToInsert) remoteFolderCacheRepository.Insert(remoteFolderToInsert);
@@ -256,8 +256,8 @@ public class DataAccessService : DataAccessBase
 
     public override void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
-        Reposityory.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
+        Repository.GetRemoteItemsInTrash(out remoteFiles, out remoteFolders);
     }
 
-    public override void EmptyTrash() => Reposityory.EmptyTrash();
+    public override void EmptyTrash() => Repository.EmptyTrash();
 }

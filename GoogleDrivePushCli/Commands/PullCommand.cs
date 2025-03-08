@@ -17,22 +17,25 @@ public class PullCommand : Command
     public PullCommand() : base("pull", "Pulls remote changes from Google Drive.")
     {
         AddOption(DefaultParameters.operationsOption);
+        AddOption(DefaultParameters.ignoreOption);
         AddOption(DefaultParameters.workingDirectoryOption);
         AddOption(DefaultParameters.yesOption);
         this.SetHandler(
             Handle,
             DefaultParameters.operationsOption,
+            DefaultParameters.ignoreOption,
             DefaultParameters.workingDirectoryOption,
             DefaultParameters.yesOption
         );
     }
 
-    private static void Handle(string operations, string workingDirectory, bool skipConfirmation)
+    private static void Handle(string operations, string[] ignoredPatterns, string workingDirectory, bool skipConfirmation)
     {
         var createOperations = new List<Operation>();
         var updateOperations = new List<Operation>();
         var deleteOperations = new List<Operation>();
         var syncFolder = SyncFolder.Read(workingDirectory);
+        syncFolder.IgnoreList.AddAll(ignoredPatterns);
         AggregateOperations(
             syncFolder,
             OperationHelpers.GetAllowedOperationTypes(operations),
@@ -79,7 +82,7 @@ public class PullCommand : Command
         {
             var fileFullPath = Path.Join(fullPath, remoteFile.Name);
             var fileRelativePath = Path.Join(relativePath, remoteFile.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote file '{fileRelativePath}' ({remoteFile.Id}).");
                 continue;
@@ -110,7 +113,7 @@ public class PullCommand : Command
         {
             var fileName = Path.GetFileName(fileFullPath);
             var fileRelativePath = Path.Join(relativePath, fileName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local file '{fileRelativePath}'.");
                 continue;
@@ -130,7 +133,7 @@ public class PullCommand : Command
         {
             var folderName = Path.GetFileName(folderFullPath);
             var folderRelativePath = Path.Join(relativePath, folderName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local folder '{folderRelativePath}'.");
                 continue;
@@ -148,7 +151,7 @@ public class PullCommand : Command
         {
             var folderFullPath = Path.Join(fullPath, remoteFolder.Name);
             var folderRelativePath = Path.Join(relativePath, remoteFolder.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
                 continue;
@@ -159,7 +162,7 @@ public class PullCommand : Command
             {
                 // Folder was created
                 var operation = new Operation(
-                    $"Remote folder '{Path.Join(folderRelativePath, "**")}'.",
+                    $"Local folder '{Path.Join(folderRelativePath, "**")}'.",
                     progress => service.DownloadFolder(remoteFolder, folderFullPath, maxDepth - depth, progress)
                 );
                 createOperations.Add(operation);
@@ -178,6 +181,7 @@ public class PullCommand : Command
                 remoteFolder.Id,
                 depth + 1
             );
+            history.Pop();
         }
     }
 }

@@ -11,6 +11,6 @@ public class RemoteCommands : Command
         AddCommand(new MakeFolderCommand());
         AddCommand(new MoveCommand());
         AddCommand(new TrashCommand());
-        AddCommand(new DownloadFileCommand());
+        AddCommand(new DownloadCommand());
     }
 }

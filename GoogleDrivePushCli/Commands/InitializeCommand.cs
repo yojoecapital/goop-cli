@@ -1,7 +1,6 @@
 using System;
 using System.CommandLine;
 using System.IO;
-using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Json.SyncFolder;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Services;
@@ -18,16 +17,14 @@ public class InitializeCommand : Command
         {
             Arity = ArgumentArity.ZeroOrOne
         };
-        var depthOption = new Option<int>(["--depth", "-d"], "The depth that to sync the folder at.");
-        depthOption.SetDefaultValue(ApplicationConfiguration.Instance.DefaultDepth);
         AddArgument(remoteFolderPathArgument);
-        AddOption(depthOption);
+        AddOption(DefaultParameters.depthOption);
         AddOption(DefaultParameters.interactiveOption);
         AddOption(DefaultParameters.workingDirectoryOption);
         this.SetHandler(
             Handle,
             remoteFolderPathArgument,
-            depthOption,
+            DefaultParameters.depthOption,
             DefaultParameters.interactiveOption,
             DefaultParameters.workingDirectoryOption
         );
@@ -35,7 +32,7 @@ public class InitializeCommand : Command
 
     private static void Handle(string remoteFolderPath, int depth, bool isInteractive, string workingDirectory)
     {
-        var directory = SyncFolder.FindParentDirectory(workingDirectory);
+        var directory = SyncFolder.FindRoot(workingDirectory);
         if (directory != null)
         {
             throw new Exception($"A '{Defaults.syncFolderFileName}' file already exists in '{directory}'");
@@ -70,5 +67,6 @@ public class InitializeCommand : Command
             Depth = depth
         };
         syncFolder.Save(workingDirectory);
+        Console.WriteLine($"Initialized sync folder at {workingDirectory}. Ready to pull.");
     }
 }

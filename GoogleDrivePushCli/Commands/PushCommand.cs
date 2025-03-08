@@ -18,22 +18,25 @@ public class PushCommand : Command
     public PushCommand() : base("push", "Pushes local changes to Google Drive.")
     {
         AddOption(DefaultParameters.operationsOption);
+        AddOption(DefaultParameters.ignoreOption);
         AddOption(DefaultParameters.workingDirectoryOption);
         AddOption(DefaultParameters.yesOption);
         this.SetHandler(
             Handle,
             DefaultParameters.operationsOption,
+            DefaultParameters.ignoreOption,
             DefaultParameters.workingDirectoryOption,
             DefaultParameters.yesOption
         );
     }
 
-    private static void Handle(string operations, string workingDirectory, bool skipConfirmation)
+    private static void Handle(string operations, string[] ignoredPatterns, string workingDirectory, bool skipConfirmation)
     {
         var createOperations = new List<Operation>();
         var updateOperations = new List<Operation>();
         var deleteOperations = new List<Operation>();
         var syncFolder = SyncFolder.Read(workingDirectory);
+        syncFolder.IgnoreList.AddAll(ignoredPatterns);
         AggregateOperations(
             syncFolder,
             OperationHelpers.GetAllowedOperationTypes(operations),
@@ -80,7 +83,7 @@ public class PushCommand : Command
         {
             var fileFullPath = Path.Join(fullPath, remoteFile.Name);
             var fileRelativePath = Path.Join(relativePath, remoteFile.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote file '{fileRelativePath}' ({remoteFile.Id}).");
                 continue;
@@ -98,7 +101,7 @@ public class PushCommand : Command
         {
             var fileName = Path.GetFileName(fileFullPath);
             var fileRelativePath = Path.Join(relativePath, fileName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local file '{fileRelativePath}'.");
                 continue;
@@ -131,7 +134,7 @@ public class PushCommand : Command
         {
             var folderFullPath = Path.Join(fullPath, remoteFolder.Name);
             var folderRelativePath = Path.Join(relativePath, remoteFolder.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
                 continue;
@@ -149,17 +152,22 @@ public class PushCommand : Command
         {
             var folderName = Path.GetFileName(folderFullPath);
             var folderRelativePath = Path.Join(relativePath, folderName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local folder '{folderRelativePath}'.");
                 continue;
             }
 
-            // Ensure the folder exists
+            // Check if folder exists
             if (!remoteFolderMap.TryGetValue(folderName, out RemoteFolder remoteFolder))
             {
-                if (!allowedOperationTypes.Contains(OperationType.Create)) return;
-                remoteFolder = service.CreateRemoteFolder(remoteFolderId, folderName);
+                // Folder was created
+                var operation = new Operation(
+                    $"Remote folder '{Path.Join(folderRelativePath, "**")}'.",
+                    progress => service.CreateRemoteFolder(remoteFolderId, folderFullPath, maxDepth - depth, progress)
+                );
+                createOperations.Add(operation);
+                continue;
             }
 
             // Tail end recursion
@@ -174,6 +182,7 @@ public class PushCommand : Command
                 remoteFolder.Id,
                 depth + 1
             );
+            history.Pop();
         }
     }
 }

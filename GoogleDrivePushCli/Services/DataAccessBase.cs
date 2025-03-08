@@ -13,7 +13,48 @@ public abstract class DataAccessBase
 
     public abstract RemoteFile CreateRemoteFile(string remoteFolderId, string localFilePath, IProgress<double> progressReport);
 
-    public abstract RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string folderName);
+    public abstract RemoteFolder CreateEmptyRemoteFolder(string parentRemoteFolderId, string folderName);
+
+    public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string localFolderPath, int depth, IProgress<double> progressReport)
+    {
+        var totalFiles = FileManagementHelpers.CountFilesAtDepth(localFolderPath, 0, depth);
+        var folderName = Path.GetFileName(localFolderPath);
+        var remoteFolder = CreateEmptyRemoteFolder(parentRemoteFolderId, folderName);
+        CreateRemoteFolder(
+            remoteFolder, localFolderPath,
+            0, depth,
+            progressReport, totalFiles
+        );
+        return remoteFolder;
+    }
+
+    private void CreateRemoteFolder(
+        RemoteFolder parentRemoteFolder, string localFolderPath,
+        int currentDepth, int depth,
+        IProgress<double> progressReport, int totalFiles
+    )
+    {
+        if (currentDepth >= depth) return;
+        foreach (var fileFullPath in Directory.GetFiles(localFolderPath))
+        {
+            var fileProgress = new Progress<double>(percent =>
+            {
+                var globalPercent = (totalFiles + percent) / totalFiles;
+                progressReport.Report(globalPercent);
+            });
+            CreateRemoteFile(parentRemoteFolder.Id, fileFullPath, fileProgress);
+        }
+        foreach (var folderFullPath in Directory.GetDirectories(localFolderPath))
+        {
+            var folderName = Path.GetFileName(folderFullPath);
+            var nextRemoteFolder = CreateEmptyRemoteFolder(parentRemoteFolder.Id, folderName);
+            CreateRemoteFolder(
+                nextRemoteFolder, folderFullPath,
+                currentDepth + 1, depth,
+                progressReport, totalFiles
+            );
+        }
+    }
 
     public abstract void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport);
 
@@ -44,13 +85,13 @@ public abstract class DataAccessBase
     }
 
     private void DownloadFolder(
-        string remoteFolderId, string path, int depth, int maxDepth,
+        string remoteFolderId, string path, int currentDepth, int depth,
         IProgress<double> progressReport, int totalFiles,
         Dictionary<string, List<RemoteFile>> remoteFileMap,
         Dictionary<string, List<RemoteFolder>> remoteFolderMap
     )
     {
-        if (depth >= maxDepth) return;
+        if (currentDepth >= depth) return;
         foreach (var remoteFile in remoteFileMap[remoteFolderId])
         {
             var filePath = Path.Join(path, remoteFile.Name);
@@ -66,7 +107,7 @@ public abstract class DataAccessBase
             var folderPath = Path.Join(path, remoteFolder.Name);
             Directory.CreateDirectory(folderPath);
             DownloadFolder(
-                remoteFolder.Id, folderPath, depth + 1, maxDepth,
+                remoteFolder.Id, folderPath, currentDepth + 1, depth,
                 progressReport, totalFiles,
                 remoteFileMap, remoteFolderMap
             );

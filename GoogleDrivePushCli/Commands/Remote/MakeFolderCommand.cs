@@ -57,6 +57,6 @@ public class MakeFolderCommand : Command
         {
             name = AnsiConsole.Prompt(new TextPrompt<string>("Enter the new folder's name:"));
         }
-        DataAccessService.Instance.CreateRemoteFolder(remoteFolder.Id, name);
+        AnsiConsole.Status().Start("Creating remote folder...", _ => DataAccessService.Instance.CreateEmptyRemoteFolder(remoteFolder.Id, name));
     }
 }

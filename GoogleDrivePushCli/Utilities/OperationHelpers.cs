@@ -42,9 +42,9 @@ public static class OperationHelpers
 
         AnsiConsole.Progress().Start(context =>
         {
-            var createTask = createOperations.Count > 0 ? context.AddTask("[green]Creating items[/]", maxValue: createOperations.Count) : null;
-            var updateTask = updateOperations.Count > 0 ? context.AddTask("[yellow]Updating items[/]", maxValue: updateOperations.Count) : null;
-            var deleteTask = deleteOperations.Count > 0 ? context.AddTask("[red]Deleting items[/]", maxValue: deleteOperations.Count) : null;
+            var createTask = createOperations.Count > 0 ? context.AddTask("Creating items", maxValue: createOperations.Count) : null;
+            var updateTask = updateOperations.Count > 0 ? context.AddTask("Updating items", maxValue: updateOperations.Count) : null;
+            var deleteTask = deleteOperations.Count > 0 ? context.AddTask("Deleting items", maxValue: deleteOperations.Count) : null;
             foreach (var operation in createOperations)
             {
                 Run(operation.Action, createTask);

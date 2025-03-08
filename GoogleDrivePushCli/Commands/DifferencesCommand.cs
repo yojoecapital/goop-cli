@@ -16,17 +16,19 @@ public class DifferencesCommand : Command
 {
     public DifferencesCommand() : base("diff", "Displays the differences in the last modified times between local and remote files.")
     {
+        AddOption(DefaultParameters.ignoreOption);
         AddOption(DefaultParameters.workingDirectoryOption);
         this.SetHandler(
             Handle,
+            DefaultParameters.ignoreOption,
             DefaultParameters.workingDirectoryOption
         );
     }
 
-    private static void Handle(string workingDirectory)
+    private static void Handle(string[] ignoredPatterns, string workingDirectory)
     {
-
         var syncFolder = SyncFolder.Read(workingDirectory);
+        syncFolder.IgnoreList.AddAll(ignoredPatterns);
         var fileDifferences = new List<FileDifference>();
         var folderDifferences = new List<FolderDifference>();
         AggregateDifferences(
@@ -82,7 +84,7 @@ public class DifferencesCommand : Command
         {
             var fileFullPath = Path.Join(fullPath, remoteFile.Name);
             var fileRelativePath = Path.Join(relativePath, remoteFile.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote file '{fileRelativePath}' ({remoteFile.Id}).");
                 continue;
@@ -113,7 +115,7 @@ public class DifferencesCommand : Command
         {
             var fileName = Path.GetFileName(fileFullPath);
             var fileRelativePath = Path.Join(relativePath, fileName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(fileRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(fileRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local file '{fileRelativePath}'.");
                 continue;
@@ -134,7 +136,7 @@ public class DifferencesCommand : Command
         {
             var folderName = Path.GetFileName(folderFullPath);
             var folderRelativePath = Path.Join(relativePath, folderName);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping local folder '{folderRelativePath}'.");
                 continue;
@@ -152,7 +154,7 @@ public class DifferencesCommand : Command
         {
             var folderFullPath = Path.Join(fullPath, remoteFolder.Name);
             var folderRelativePath = Path.Join(relativePath, remoteFolder.Name);
-            if (syncFolder.IgnoreListService.ShouldIgnore(folderRelativePath))
+            if (syncFolder.IgnoreList.ShouldIgnore(folderRelativePath))
             {
                 ConsoleHelpers.Info($"Skipping remote folder '{folderRelativePath}' ({remoteFolder.Id}).");
                 continue;
@@ -179,6 +181,7 @@ public class DifferencesCommand : Command
                 remoteFolder.Id,
                 depth + 1
             );
+            history.Pop();
         }
     }
 }
