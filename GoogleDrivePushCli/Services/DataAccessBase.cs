@@ -63,16 +63,10 @@ public abstract class DataAccessBase
         // Load all the files and folders into memory
         Dictionary<string, List<RemoteFile>> remoteFileMap = [];
         Dictionary<string, List<RemoteFolder>> remoteFolderMap = [];
-        Stack<RemoteFolder> stack = new();
-        stack.Push(remoteFolder);
-        for (int currentDepth = 0; stack.Count > 0 && currentDepth < depth; currentDepth++)
-        {
-            var currentRemoteFolder = stack.Pop();
-            GetRemoteFolder(currentRemoteFolder.Id, out var remoteFiles, out var remoteFolders);
-            remoteFileMap[currentRemoteFolder.Id] = remoteFiles;
-            remoteFolderMap[currentRemoteFolder.Id] = remoteFolders;
-            foreach (var nextRemoteFolder in remoteFolders) stack.Push(nextRemoteFolder);
-        }
+        PopulateRemoteItemMaps(
+            remoteFolder.Id, 0, depth,
+            remoteFileMap, remoteFolderMap
+        );
         int totalFiles = remoteFileMap.Values.Sum(list => list.Count);
 
         // Download each file recursively
@@ -80,6 +74,22 @@ public abstract class DataAccessBase
         DownloadFolder(
             remoteFolder.Id, path, 0, depth,
             progressReport, totalFiles,
+            remoteFileMap, remoteFolderMap
+        );
+    }
+
+    private void PopulateRemoteItemMaps(
+        string remoteFolderId, int currentDepth, int depth,
+        Dictionary<string, List<RemoteFile>> remoteFileMap,
+        Dictionary<string, List<RemoteFolder>> remoteFolderMap
+    )
+    {
+        if (currentDepth >= depth) return;
+        GetRemoteFolder(remoteFolderId, out var remoteFiles, out var remoteFolders);
+        remoteFileMap[remoteFolderId] = remoteFiles;
+        remoteFolderMap[remoteFolderId] = remoteFolders;
+        foreach (var remoteFolder in remoteFolders) PopulateRemoteItemMaps(
+            remoteFolder.Id, currentDepth + 1, depth,
             remoteFileMap, remoteFolderMap
         );
     }
