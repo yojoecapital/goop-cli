@@ -36,7 +36,7 @@ public class ApplicationConfiguration
 
     private static ApplicationConfiguration CreateConfiguration()
     {
-        if (File.Exists(Defaults.configurationPath))
+        if (File.Exists(Defaults.configurationJsonPath))
         {
             return JsonSerializer.Deserialize(
                 File.ReadAllText(Defaults.configurationJsonPath),

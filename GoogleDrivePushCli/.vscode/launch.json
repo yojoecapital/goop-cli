@@ -12,8 +12,7 @@
             "program": "${workspaceFolder}/bin/Debug/net8.0/linux-x64/goop.dll",
             "args": [
                 "goop",
-                "push",
-                "--yes",
+                "diff",
                 "--verbose"
             ],
             "cwd": "/home/yojoe/.config/goop-cli",
