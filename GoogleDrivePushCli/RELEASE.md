@@ -1,12 +1,33 @@
-## Major version release
+## Breaking Changes
+- folders synced with previous versions of `goop` are **not compatible** with `3.0.0`
+- to fix this, sync your folder with your current version of `goop`, delete the `.goop` file in the sync folder, and then re-sync using the latest version
 
-- folders synced with previous versions of `goop` will not work with `3.0.0`
-- it'd probably be easiest to sync your folder with your current version of `goop`, delete the `.goop` file in the sync folder, then re-sync with the newest version
+## New Features
+- **Interactive prompts**: `goop` now uses [Spectre.Console](https://spectreconsole.net/) for improved, interactive terminal prompts
+- **Remote item management**: you can interact with Google Drive directly using the `remote` subcommands, no sync folder required
+- **Global cache**: a global cache (`~/.config/goop-cli/cache.db`) is now used to map your Google Drive structure for faster operations
+- **`diff` command**: view differences in last modified times between local and remote items for any sync folder
+- **Ignore file**: use a `.goopignore` file to specify a list of glob patterns that `goop` should ignore when process items in a sync folder
+- **Operation filtering**: 
+  - you can filter `push` and `pull` operations using the `--operations [c|u|d]` flag
+  - you can also specify additional ignored glob patterns using `--ignore <glob-pattern>`
 
-## Features
 
-- `goop` now uses [Spectre.Console](https://spectreconsole.net/) for nice interactive prompts
-- you can also interact directly with Google Drive without a sync folder by using the `remote` subcommands
-- `goop` now uses a global cache to map your Google Drive structure. This is stored at `~/.config/goop-cli/cache.db`
-- you can use the `diff` command to view the differences in last modified times between local and remote items for a sync folder
-- to get started, just run `goop init --working-dir <path-to-sync-folder>`
+## Getting started
+
+A bit of [setup](https://github.com/yojoecapital/goop-cli?tab=readme-ov-file#setup) is required before `goop` can interact with Google Drive's API. Once that's done, you can use the tool with ease.
+
+```bash
+# enter a directory you'd like to sync with Google Drive
+cd my-sync-folder
+
+# initialize the sync folder
+goop init 
+
+# pull the remote items from Google Drive
+goop pull
+
+# push your changes to Google Drive
+goop push
+```
+

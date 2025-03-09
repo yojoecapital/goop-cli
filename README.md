@@ -1,27 +1,27 @@
 # Google Drive Push CLI
 
-The Google Drive Push CLI is a simple tool for syncing files between a local directory and Google Drive.
+The **Google Drive Push CLI** is a tool for syncing files between a local directory and Google Drive. It supports pushing and pulling files, managing remote items, and displaying differences between local and remote files.
 
 ## Setup
 
-This program requires the **Google Drive API** to be enabled and to have the `credentials.json` saved in the configuration directory for `goop`. These are high level instructions on how you can set that up.
+Before you can use the tool, you'll need to enable the **Google Drive API** and set up OAuth 2.0 credentials. Follow these steps to set it up:
 
-1. go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. create a new project
-3. enable the Google Drive API for your project
-   - navigate to **APIs & Services > Library**
-   - search for "Google Drive API" and enable it
-4. create OAuth 2.0 credentials
-   - go to **APIs & Services > Credentials**
-   - click **Create Credentials > OAuth Client ID**
-   - choose **Desktop App** as the application type
-   - download the `credentials.json` file and save it to the configuration directory
-     - Linux: `/home/<user>/.config/goop`
-     - Windows: `C:\Users\<user>\AppData\Roaming\goop`
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project.
+3. Enable the **Google Drive API** for your project:
+   - Navigate to **APIs & Services > Library**.
+   - Search for "Google Drive API" and enable it.
+4. Create OAuth 2.0 credentials:
+   - Go to **APIs & Services > Credentials**.
+   - Click **Create Credentials > OAuth Client ID**.
+   - Choose **Desktop App** as the application type.
+   - Download the `credentials.json` file and save it to the configuration directory:
+     - **Linux**: `/home/<user>/.config/goop`
+     - **Windows**: `C:\Users\<user>\AppData\Roaming\goop`
 
 ## Installation
 
-You can execute the following command to install or update `goop`.
+To install or update the Google Drive Push CLI, run:
 
 ```bash
 curl -L -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/
@@ -29,51 +29,78 @@ curl -L -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/do
 
 ## Usage
 
+Run the following command to see all available options and commands:
+
 ```bash
 goop --help
 ```
 
-### Initialize
+### Commands
 
-Use `initialize` or `init` to associate a Google Drive folder with the current local directory. Optionally, include `--depth <depth>` to specify the maximum folder depth to sync. After initializing you can use `pull` to download the remote files onto your system.
+- `initialize <remote-path>` (or `init`): set up a new sync folder by creating a `.goop` file in the current directory
+  - use `--depth <depth>` to set the maximum folder depth to sync
+  - if the `<remote-path>` argument is omitted,  an interactive prompt will allow users to traverse their Google Drive directories in the terminal and select the folder to sync
 
-### Push
+- `push`: upload local changes to the associated Google Drive folder
+  - use `--operations [c|u|d]` (or `-x`) to specify which operations should be pushed. The `c` stands for create, `u` for update, and `d` for delete. The default value for this is `cud` for all the operations
+  - use `--ignore <glob-pattern>` (or `-i`) to ignore [additional glob patterns](#ignoring-glob-patterns) from being processed
 
-Use `push` to upload local changes to the linked Google Drive folder. Passing `--yes` will commit the changes to Google Drive. Otherwise only the potential changes will be printed to the console.
+- `pull`: download remote changes from Google Drive to the local directory
+  - the same arguments in `push` are present in `pull`
 
-### Pull
+- `diff`: display the differences between the last modified times of local and remote files
 
-Use `pull` to download remote changes from the linked Google Drive folder. Passing `--yes` will commit the changes to your local directory. Otherwise only the potential changes will be printed to the console.
+#### Remote item management
 
-## Configuring
+You can manage remote items with the `remote` command. If you omit the `<path>` argument, an interactive prompt will be used instead.
 
-- a cache is stored under `~/.conflig/goop-cli/cache.db`. You can delete this file any time to clear it
-- there are additional configuration options in `~/.conflig/goop-cli/config.json`
+- `remote info <path>` (or `remote information`): get information for a remote item
+- `remote list <path>` (or `remote ls`): list items in a remote folder (default is `/`)
+- `remote mkdir <path>`: create a new folder in an existing remote folder
+- `remote move <path>` (or `remote mv`): move or reparent an item
+- `remote trash <path>`: move an item to the trash
+- `remote download <path>`: download a remote item
+
+### Configuration
+
+The program stores a cache under `~/.config/goop-cli/cache.db`, which can be deleted to clear the cache. Additionally, there are configuration options in `~/.config/goop-cli/config.json`.
+
+Here is an example of the configuration file:
 
 ```json
 {
   "cache": {
-    "ttl": 300000, // the cache's time to live in milliseconds
+    "ttl": 300000, // Cache TTL in milliseconds
     "enabled": true 
   },
-  "auto_ignore_list": [ // ignore these files when syncing folders
+  "auto_ignore_list": [ // Files to ignore during sync
     ".goop",
     ".goopignore"
   ],
-  "default_depth": 3, // the default depth initialized folders use
-  "max_depth": 3, // the max depth that can synced
-  "shortcut_template": null 
+  "default_depth": 3, // Default sync folder depth
+  "max_depth": 3, // Maximum sync folder depth
+  "shortcut_template": null // Not implemented yet
 }
 ```
 
-- the `shortcut_template` option doesn't do anything yet. I plan on using it to define URL shortcut file templates to open files with Google native MIME types like `application/vnd.google-apps.*`
+The `shortcut_template` option is not yet implemented but will be used to define URL shortcut templates for opening files with Google-native MIME types like `application/vnd.google-apps.*`.
+
+#### Ignoring glob patterns
+
+Create a `.goopignore` file inside a sync folder and use it specify a list of glob patterns that should be ignored.
+
+```
+secret-file.txt
+secret-items/**
+```
 
 ## Building
 
-To compile the project and run it as a self-contained executable:
+To compile and build the project as a self-contained executable:
+
 ```bash
 cd GoogleDrivePushCli
 dotnet publish -c Release -r linux-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
-This will generate a single executable file. Replace `linux-x64` with whatever OS your using.
+Replace `linux-x64` with the appropriate target platform (e.g. `win-x64`).
