@@ -123,7 +123,7 @@ public class PushCommand : Command
                 // File was created
                 var operation = new Operation(
                     $"Remote file '{fileRelativePath}'.",
-                    progress => service.CreateRemoteFile(remoteFile.Id, fileFullPath, progress)
+                    progress => service.CreateRemoteFile(remoteFolderId, fileFullPath, progress)
                 );
                 createOperations.Add(operation);
             }
