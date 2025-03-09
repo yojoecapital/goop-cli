@@ -1,0 +1,25 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch with Arguments",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/linux-x64/goop.dll",
+            "args": [
+                "remote",
+                "download",
+                "Documents/Memoization",
+                "--verbose"
+            ],
+            "cwd": "/tmp/test-dir",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": false
+        }
+    ]
+}

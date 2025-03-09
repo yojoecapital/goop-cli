@@ -114,9 +114,8 @@ public class DataAccessRepository : DataAccessBase
         request.Fields = defaultFileFields;
         request.ProgressChanged += progress =>
         {
-            if (progress.Status != UploadStatus.Uploading) return;
             var percentage = progress.BytesSent / (double)totalSize;
-            progressReport?.Report(percentage);
+            progressReport.Report(percentage);
         };
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
@@ -139,9 +138,8 @@ public class DataAccessRepository : DataAccessBase
         request.Fields = defaultFileFields;
         request.ProgressChanged += progress =>
         {
-            if (progress.Status != UploadStatus.Uploading) return;
             var percentage = progress.BytesSent / (double)totalSize;
-            progressReport?.Report(percentage);
+            progressReport.Report(percentage);
         };
         var progress = request.Upload();
         if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
@@ -183,9 +181,8 @@ public class DataAccessRepository : DataAccessBase
             request.Fields = defaultFileFields;
             request.MediaDownloader.ProgressChanged += progress =>
             {
-                if (progress.Status != DownloadStatus.Downloading) return;
                 var percentage = progress.BytesDownloaded / (double)totalSize;
-                progressReport?.Report(percentage);
+                progressReport.Report(percentage);
             };
             request.Download(stream);
             var googleDriveFile = request.Execute();
