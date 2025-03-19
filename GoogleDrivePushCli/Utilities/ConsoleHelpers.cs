@@ -26,4 +26,11 @@ public static class ConsoleHelpers
         }
         Console.SetCursorPosition(0, row);
     }
+
+    public static void Debug(object value)
+    {
+#if DEBUG
+        AnsiConsole.MarkupLineInterpolated($"[bold cyan][[DEBUG]][/] {value}");
+#endif
+    }
 }

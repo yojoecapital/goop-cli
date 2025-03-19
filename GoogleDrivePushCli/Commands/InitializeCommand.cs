@@ -50,7 +50,7 @@ public class InitializeCommand : Command
                 remoteFolderPath,
                 new()
                 {
-                    prompt = $"Select a remote file to download.",
+                    prompt = $"Select a remote folder to initialize sync with.",
                     onlyDisplayFolders = true
                 }
             )?.Peek();

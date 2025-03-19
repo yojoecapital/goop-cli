@@ -11,6 +11,7 @@ public class TrashCommand : Command
 {
     public TrashCommand() : base("trash", "Trash an item.")
     {
+        AddAlias("rm");
         var listOption = new Option<bool>(
             "--list",
             "List the items in the trash."
@@ -45,6 +46,7 @@ public class TrashCommand : Command
             {
                 selectThisText = "Trash this folder"
             }).Peek();
+            if (remoteItem == null) return;
         }
         else if (!string.IsNullOrEmpty(path))
         {

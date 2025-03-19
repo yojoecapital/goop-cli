@@ -17,7 +17,7 @@ public abstract class DataAccessBase
 
     public RemoteFolder CreateRemoteFolder(string parentRemoteFolderId, string localFolderPath, int depth, IProgress<double> progressReport)
     {
-        var totalFiles = FileManagementHelpers.CountFilesAtDepth(localFolderPath, 0, depth);
+        var totalFiles = FileManagementHelpers.CountFilesAtDepth(localFolderPath, depth, 0);
         var folderName = Path.GetFileName(localFolderPath);
         var remoteFolder = CreateEmptyRemoteFolder(parentRemoteFolderId, folderName);
         CreateRemoteFolder(
