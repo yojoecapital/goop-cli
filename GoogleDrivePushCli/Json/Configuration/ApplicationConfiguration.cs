@@ -17,12 +17,13 @@ public class ApplicationConfiguration
         Defaults.ignoreListFileName
     ];
 
+    [JsonPropertyName("auth")]
+    public TokenRefreshConfiguration TokenRefreshConfiguration { get; set; } = new();
+
     [JsonPropertyName("default_depth")]
     public int DefaultDepth { get; set; } = 3;
     [JsonPropertyName("max_depth")]
     public int MaxDepth { get; set; } = 3;
-    [JsonPropertyName("shortcut_template")]
-    public string ShortcutTemplate { get; set; }
 
     private static ApplicationConfiguration instance;
     public static ApplicationConfiguration Instance

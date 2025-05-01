@@ -73,17 +73,18 @@ Here is an example of the configuration file:
     "ttl": 300000, // Cache TTL in milliseconds
     "enabled": true 
   },
+  "auth": {
+    "max_token_retries": 3, // The max number of times to retry token refreshes
+    "retry_delay": 1000 // The delay in milliseconds between token refreshes
+  },
   "auto_ignore_list": [ // Files to ignore during sync
     ".goop",
     ".goopignore"
   ],
   "default_depth": 3, // Default sync folder depth
   "max_depth": 3, // Maximum sync folder depth
-  "shortcut_template": null // Not implemented yet
 }
 ```
-
-The `shortcut_template` option is not yet implemented but will be used to define URL shortcut templates for opening files with Google-native MIME types like `application/vnd.google-apps.*`.
 
 #### Ignoring glob patterns
 

@@ -8,6 +8,7 @@ using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
 using Google.Apis.Util.Store;
+using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Utilities;
 using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
@@ -28,6 +29,32 @@ public class DataAccessRepository : DataAccessBase
         {
             throw new Exception($"The credentials JSON could not be found at '{Defaults.credentialsPath}'");
         }
+        credential = RetryHelper.Retry(
+            GetUserCredential,
+            ApplicationConfiguration.Instance.TokenRefreshConfiguration.MaxTokenRetries,
+            ApplicationConfiguration.Instance.TokenRefreshConfiguration.RetryDelay
+        );
+
+        // Create the service
+        try
+        {
+            service = new DriveService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = Defaults.applicationName,
+            });
+        }
+        catch
+        {
+            throw new Exception("Failed to initialize Google Drive service");
+        }
+        ConsoleHelpers.Info(this);
+    }
+
+    private UserCredential GetUserCredential()
+    {
+        ConsoleHelpers.Info("Getting user credentials...");
+        UserCredential credential;
 
         // Get permission and make token
         try
@@ -71,20 +98,8 @@ public class DataAccessRepository : DataAccessBase
         if (result) ConsoleHelpers.Info("Token accepted.");
         else throw new Exception();
 
-        // Create the service
-        try
-        {
-            service = new DriveService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = Defaults.applicationName,
-            });
-        }
-        catch
-        {
-            throw new Exception("Failed to initialize Google Drive service");
-        }
-        ConsoleHelpers.Info(this);
+        // Return credential
+        return credential;
     }
 
     public override string ToString()
