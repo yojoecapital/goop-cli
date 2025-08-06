@@ -8,29 +8,35 @@ namespace GoogleDrivePushCli.Utilities;
 
 public static class LinkFileHelper
 {
-    private static readonly string windowsExtension = "url";
-    private static readonly string osxExtension = "webloc";
-    private static readonly string linuxExtension = "desktop";
+    private static readonly string windowsExtension = ".url";
+    private static readonly string osxExtension = ".webloc";
+    private static readonly string linuxExtension = ".desktop";
     private static readonly string googleNativeMimeType = "application/vnd.google-apps.";
 
-    public static string LinkFileExtension
+    private static string GetLinkFileTemplatePath()
     {
-        get
+        var matchingFiles = Directory.GetFiles(Defaults.configurationPath, Defaults.linkTempalteFilePattern);
+        if (matchingFiles.Length == 0) return null;
+        return matchingFiles[0];
+    }
+
+    public static string GetLinkFileExtension()
+    {
+        var linkFileTemplatePath = GetLinkFileTemplatePath();
+        if (linkFileTemplatePath != null) return Path.GetExtension(linkFileTemplatePath);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                return windowsExtension;
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                return osxExtension;
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                return linuxExtension;
-            }
-            throw new PlatformNotSupportedException("Unsupported operating system");
+            return windowsExtension;
         }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return osxExtension;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return linuxExtension;
+        }
+        throw new PlatformNotSupportedException("Unsupported operating system");
     }
 
     public static bool IsGoogleDriveNativeFile(string mimeType)
@@ -38,19 +44,29 @@ public static class LinkFileHelper
         return mimeType.StartsWith(googleNativeMimeType) && mimeType != RemoteFolder.MimeType;
     }
 
-    public static void CreateLinkFile(string url, string filePathWithoutExtension)
+    public static void CreateLinkFile(string name, string url, string filePath)
+    {
+        var linkFileTemplatePath = GetLinkFileTemplatePath();
+        if (linkFileTemplatePath == null)
+        {
+            CreateDefaultLinkFile(name, url, filePath);
+            return;
+        }
+
+        FileManagementHelpers.CopyFileWithPermissions(linkFileTemplatePath, filePath);
+        string content = File.ReadAllText(filePath).Replace("%NAME%", name).Replace("%URL%", url);
+        File.WriteAllText(filePath, content);
+    }
+
+    private static void CreateDefaultLinkFile(string name, string url, string filePath)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // Windows Internet Shortcut (.url)
-            string filePath = filePathWithoutExtension + "." + windowsExtension;
             string content = $"[InternetShortcut]\r\nURL={url}\r\n";
             File.WriteAllText(filePath, content);
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // macOS .webloc file (XML plist)
-            string filePath = filePathWithoutExtension + "." + osxExtension;
             string content = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <!DOCTYPE plist PUBLIC ""-//Apple//DTD PLIST 1.0//EN"" ""http://www.apple.com/DTDs/PropertyList-1.0.dtd"">
 <plist version=""1.0"">
@@ -63,12 +79,10 @@ public static class LinkFileHelper
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            // Linux .desktop file
-            string filePath = filePathWithoutExtension + "." + linuxExtension;
             string content = $@"[Desktop Entry]
 Encoding=UTF-8
 Type=Link
-Name=Link
+Name={name}
 URL={url}
 ";
             File.WriteAllText(filePath, content);

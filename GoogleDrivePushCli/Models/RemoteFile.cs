@@ -16,7 +16,7 @@ public class RemoteFile : RemoteItem
         string name = googleDriveFile.Name;
         if (LinkFileHelper.IsGoogleDriveNativeFile(googleDriveFile.MimeType))
         {
-            name += "." + LinkFileHelper.LinkFileExtension;
+            name += LinkFileHelper.GetLinkFileExtension();
         }
         return new()
         {

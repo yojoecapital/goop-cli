@@ -8,6 +8,7 @@ namespace GoogleDrivePushCli
         public static readonly string applicationName = "Google Drive Push CLI";
         public static readonly string configurationPath = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "goop-cli");
         public static readonly string configurationJsonPath = Path.Join(configurationPath, "config.json");
+        public static readonly string linkTempalteFilePattern = "link-template.*";
         public static readonly string syncFolderFileName = ".goop";
         public static readonly string ignoreListFileName = ".goopignore";
         public static readonly string credentialsPath = Path.Join(configurationPath, "credentials.json");

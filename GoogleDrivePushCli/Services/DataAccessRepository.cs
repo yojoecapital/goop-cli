@@ -190,7 +190,7 @@ public class DataAccessRepository : DataAccessBase
     {
         if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType))
         {
-            LinkFileHelper.CreateLinkFile($"https://drive.google.com/file/d/{remoteFile.Id}/view", path);
+            LinkFileHelper.CreateLinkFile(remoteFile.Name, $"https://drive.google.com/file/d/{remoteFile.Id}/view", path);
             progressReport.Report(1);
             return;
         }
