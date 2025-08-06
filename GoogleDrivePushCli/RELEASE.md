@@ -1,15 +1,23 @@
-## Breaking Changes
+## 
 
-There is now retry logic if token refresh fails. Configuring retry logic can be done in `~/.config/goop-cli/config.json` with:
+## New Features
 
-```json
-{
-  "auth": {
-    "max_token_retries": 3, // The max number of times to retry token refreshes
-    "retry_delay": 1000 // The delay in milliseconds between token refreshes
-  }
-}
-```
+Google Drive native files (i.e., Google Docs, Slides, Sheets, Forms, etc.) will now sync with a **link file**.
+
+### Template Support (Optional)
+
+You can provide a custom link file template by placing a file matching the pattern `link-template.*` in the configuration directory. The generated link files will match the template's extension as well as file permissions. Supported placeholders in the template:
+
+- `%NAME%` → Replaced with the document name
+- `%URL%` → Replaced with the Google Drive URL of the file
+
+### Fallback Behavior
+
+ If no template is found, the system automatically generates a default link file format based on the OS:
+
+- **Windows `.url`**: Uses `[InternetShortcut]` syntax
+- **macOS `.webloc`**: Generates an XML `.plist`
+- **Linux `.desktop`**: Creates a `.desktop` file with a URL and marks it executable
 
 
 ## Getting started
