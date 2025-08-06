@@ -9,11 +9,16 @@ public class ClearCache : Command
 {
     public ClearCache() : base("clear-cache", "Removes the cache file.")
     {
+        this.SetHandler(Handle);
+    }
+
+    private static void Handle()
+    {
         if (File.Exists(Defaults.cacheDatabasePath))
         {
             File.Delete(Defaults.cacheDatabasePath);
-            Console.WriteLine($"Removed '{Defaults.cacheDatabasePath}'.");
+            ConsoleHelpers.Info($"Removed '{Defaults.cacheDatabasePath}'.");
         }
-        else Console.WriteLine($"No cache to clear.");
+        else ConsoleHelpers.Info($"No cache to clear.");
     }
 }
