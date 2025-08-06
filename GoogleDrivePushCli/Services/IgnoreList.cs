@@ -18,15 +18,38 @@ public class IgnoreList
         {
             foreach (var pattern in File.ReadLines(filePath).Where(line => !string.IsNullOrWhiteSpace(line)))
             {
-                matcher.AddInclude(pattern);
+                AddPattern(pattern);
             }
         }
-        matcher.AddIncludePatterns(autoIgnoreList);
+        AddPatterns(autoIgnoreList);
     }
 
     public void AddAll(string[] patterns)
     {
-        matcher.AddIncludePatterns(patterns);
+        AddPatterns(patterns);
+    }
+
+    private void AddPatterns(IEnumerable<string> patterns)
+    {
+        foreach (var pattern in patterns)
+        {
+            AddPattern(pattern);
+        }
+    }
+
+    private void AddPattern(string pattern)
+    {
+        if (pattern.StartsWith('!'))
+        {
+            // Negation pattern: exclude
+            var negatedPattern = pattern.Substring(1);
+            matcher.AddExclude(negatedPattern);
+        }
+        else
+        {
+            // Normal include pattern
+            matcher.AddInclude(pattern);
+        }
     }
 
     public bool ShouldIgnore(string relativePath)

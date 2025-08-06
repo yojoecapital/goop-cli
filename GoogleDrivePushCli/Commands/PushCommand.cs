@@ -109,11 +109,11 @@ public class PushCommand : Command
             if (remoteFileMap.TryGetValue(fileName, out var remoteFile))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (lastWriteTime <= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
+                if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType) || lastWriteTime <= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
 
                 // File was edited
                 var operation = new Operation(
-                    $"Remote file '{fileRelativePath}'.",
+                $"Remote file '{fileRelativePath}'.",
                     progress => service.UpdateRemoteFile(remoteFile.Id, fileFullPath, progress)
                 );
                 updateOperations.Add(operation);

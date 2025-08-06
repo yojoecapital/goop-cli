@@ -188,6 +188,12 @@ public class DataAccessRepository : DataAccessBase
 
     public override void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
+        if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType))
+        {
+            LinkFileHelper.CreateLinkFile($"https://drive.google.com/file/d/{remoteFile.Id}/view", path);
+            progressReport.Report(1);
+            return;
+        }
         try
         {
             using var stream = new FileStream(path, FileMode.Create);

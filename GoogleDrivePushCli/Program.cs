@@ -13,7 +13,7 @@ namespace GoogleDrivePushCli
 {
     public static class Program
     {
-        public static readonly string version = "3.0.1";
+        public static readonly string version = "3.1.0";
         private static readonly Option<bool> verboseOption = new("--verbose", "Show [INFO] messages.");
 
         [STAThread]
@@ -68,6 +68,7 @@ namespace GoogleDrivePushCli
 #if DEBUG
             Console.WriteLine(exception.StackTrace);
 #endif
+            Console.CursorVisible = true;
             context.ExitCode = 1;
         }
     }

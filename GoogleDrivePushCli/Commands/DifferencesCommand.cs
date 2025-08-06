@@ -89,6 +89,20 @@ public class DifferencesCommand : Command
                 ConsoleHelpers.Info($"Skipping remote file '{fileRelativePath}' ({remoteFile.Id}).");
                 continue;
             }
+
+            // don't show the timestamps for link files
+            if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType))
+            {
+                var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
+                var difference = new FileDifference()
+                {
+                    Path = fileRelativePath
+                };
+                fileDifferences.Add(difference);
+                continue;
+
+            }
+
             if (File.Exists(fileFullPath))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);

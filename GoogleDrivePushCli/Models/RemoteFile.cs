@@ -1,4 +1,5 @@
 using System.Linq;
+using GoogleDrivePushCli.Utilities;
 using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace GoogleDrivePushCli.Models;
@@ -12,10 +13,15 @@ public class RemoteFile : RemoteItem
 
     public static RemoteFile CreateFrom(GoogleDriveFile googleDriveFile)
     {
+        string name = googleDriveFile.Name;
+        if (LinkFileHelper.IsGoogleDriveNativeFile(googleDriveFile.MimeType))
+        {
+            name += "." + LinkFileHelper.LinkFileExtension;
+        }
         return new()
         {
             Id = googleDriveFile.Id,
-            Name = googleDriveFile.Name,
+            Name = name,
             MimeType = googleDriveFile.MimeType,
             ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.ToUnixTimeMilliseconds(),
             Size = googleDriveFile.Size.Value,

@@ -90,7 +90,7 @@ public class PullCommand : Command
             if (File.Exists(fileFullPath))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (lastWriteTime >= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
+                if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType) || lastWriteTime >= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
 
                 // File was edited
                 var operation = new Operation(
