@@ -22,6 +22,7 @@ namespace GoogleDrivePushCli
             var rootCommand = new RootCommand($"The {Defaults.applicationName} is a simple tool for syncing files between a local directory and Google Drive.")
             {
                 new RemoteCommands(),
+                new ClearCache(),
                 new InitializeCommand(),
                 new DifferencesCommand(),
                 new PullCommand(),
