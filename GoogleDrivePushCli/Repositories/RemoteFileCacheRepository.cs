@@ -12,6 +12,7 @@ public class RemoteFileCacheRepository(SqliteConnection connection) : Repository
         new(nameof(RemoteFile.Id), PropertyType.String),
         [
             new(nameof(RemoteFile.Name), PropertyType.String, false),
+            new(nameof(RemoteFile.RemoteName), PropertyType.String, true),
             new(nameof(RemoteFile.FolderId), PropertyType.String, true),
             new(nameof(RemoteFile.Timestamp), PropertyType.Long, false),
             new(nameof(RemoteFile.MimeType), PropertyType.String, false),

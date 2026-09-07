@@ -1,15 +1,23 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>3.1.0</Version>
+        <Version>3.2.0</Version>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <AssemblyName>goop</AssemblyName>
         <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
-        <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+        <RuntimeIdentifiers>linux-x64;linux-arm64;win-x64;win-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
         <SelfContained>true</SelfContained>
         <PublishSingleFile>true</PublishSingleFile>
+        <EnableSdkContainerSupport>false</EnableSdkContainerSupport>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
+        <RuntimeIdentifier>$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
     </PropertyGroup>
 
     <ItemGroup>

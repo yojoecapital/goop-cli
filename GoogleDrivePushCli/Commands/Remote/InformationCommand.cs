@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.Linq;
@@ -38,25 +37,27 @@ public class InformationCommand : Command
         }
         else remoteItems = DataAccessService.Instance.GetRemoteItemsFromPath(path);
         var remoteItem = remoteItems.Peek();
-        var remotePath = $"{string.Join('/', remoteItems.Select(remoteItem => remoteItem.Name).Reverse())}";
+        var remotePath = string.Join('/', remoteItems.Select(item => item.Name).Reverse());
         var grid = new Grid();
         grid.AddColumns(2);
+        AddRow(grid, "ID", remoteItem.Id);
+        AddRow(grid, "Name", remoteItem.EffectiveRemoteName);
         if (remoteItem is RemoteFile remoteFile)
         {
-            grid.AddRow(["[bold]ID[/]", $": {remoteFile.Id}"]);
-            grid.AddRow(["[bold]Name[/]", $": {remoteFile.Name.EscapeMarkup()}"]);
-            grid.AddRow(["[bold]MIME type[/]", $": {remoteFile.MimeType}"]);
-            grid.AddRow(["[bold]Modified time[/]", $": {remoteFile.ModifiedTime}"]);
-            grid.AddRow(["[bold]Size[/]", $": {remoteFile.Size.ToFileSize()}"]);
-            grid.AddRow(["[bold]Path[/]", $": {remotePath}"]);
+            AddRow(grid, "MIME type", remoteFile.MimeType);
+            AddRow(grid, "Modified time", remoteFile.ModifiedTime.ToUtcDateTime().ToLocalTime().ToString());
+            if (remoteFile.IsLink)
+            {
+                AddRow(grid, "Local name", remoteFile.Name);
+                AddRow(grid, "URL", remoteFile.WebViewLink);
+            }
+            else AddRow(grid, "Size", remoteFile.Size.ToFileSize());
         }
-        else
-        {
-            grid.AddRow(["[bold]ID[/]", $": {remoteItem.Id}"]);
-            grid.AddRow(["[bold]Name[/]", $": {remoteItem.Name.EscapeMarkup()}"]);
-            grid.AddRow(["[bold]MIME type[/]", $": {RemoteFolder.MimeType}"]);
-            grid.AddRow(["[bold]Path[/]", $": {remotePath}"]);
-        }
+        else AddRow(grid, "MIME type", RemoteFolder.MimeType);
+        AddRow(grid, "Path", remotePath);
         AnsiConsole.Write(grid);
     }
+
+    private static void AddRow(Grid grid, string label, string value) =>
+        grid.AddRow([$"[bold]{label}[/]", $": {(value ?? string.Empty).EscapeMarkup()}"]);
 }

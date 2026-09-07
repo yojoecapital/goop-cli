@@ -1,6 +1,5 @@
 using System;
 using System.CommandLine;
-using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
 using Spectre.Console;
@@ -9,17 +8,11 @@ namespace GoogleDrivePushCli.Commands.Remote;
 
 public class TrashCommand : Command
 {
-    public TrashCommand() : base("trash", "Trash an item.")
+    public TrashCommand() : base("trash", "Trash a remote item.")
     {
         AddAlias("rm");
-        var listOption = new Option<bool>(
-            "--list",
-            "List the items in the trash."
-        );
-        var emptyOption = new Option<bool>(
-            "--empty",
-            "Empty the trash."
-        );
+        var listOption = new Option<bool>("--list", "List the items in the trash.");
+        var emptyOption = new Option<bool>("--empty", "Empty the trash.");
         AddArgument(DefaultParameters.pathArgument);
         AddOption(DefaultParameters.interactiveOption);
         AddOption(listOption);
@@ -37,47 +30,31 @@ public class TrashCommand : Command
 
     private static void Handle(string path, bool isInteractive, bool shouldList, bool shouldEmpty, bool skipConfirmation)
     {
-        // Handle the path argument
-        RemoteItem remoteItem = null;
-        if (isInteractive || string.IsNullOrEmpty(path) && !shouldList && !shouldEmpty)
+        var service = DataAccessService.Instance;
+        var shouldTrash = isInteractive || !string.IsNullOrEmpty(path) || (!shouldList && !shouldEmpty);
+        if (shouldTrash)
         {
-            if (string.IsNullOrEmpty(path)) path = "/";
-            remoteItem = NavigationHelper.Navigate(path, new()
-            {
-                selectThisText = "Trash this folder"
-            })?.Peek();
+            var remoteItem = RemotePathResolver.ResolveItem(path, isInteractive, "Select a remote item to trash.", "Trash this folder");
             if (remoteItem == null) return;
-        }
-        else if (!string.IsNullOrEmpty(path))
-        {
-            remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
-        }
-        if (remoteItem != null)
-        {
-            if (remoteItem.Id == DataAccessService.Instance.RootId)
-            {
-                throw new Exception("Cannot trash root folder");
-            }
-            DataAccessService.Instance.TrashRemoteItem(remoteItem.Id);
+            if (remoteItem.Id == service.RootId) throw new Exception("Cannot trash the root folder");
+            if (!skipConfirmation && !AnsiConsole.Confirm($"Move '{remoteItem.Name.EscapeMarkup()}' to the trash?", false)) return;
+            service.TrashRemoteItem(remoteItem.Id);
+            Console.WriteLine($"Trashed '{remoteItem.Name}' ({remoteItem.Id}).");
         }
 
-        // Handle the list option
         if (shouldList)
         {
-            DataAccessService.Instance.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
-            if (shouldEmpty) Console.ForegroundColor = ConsoleColor.Red;
-            foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
+            service.GetRemoteItemsInTrash(out var remoteFiles, out var remoteFolders);
+            if (remoteFolders.Count == 0 && remoteFiles.Count == 0) Console.WriteLine("The trash is empty.");
             foreach (var remoteFolder in remoteFolders) Console.WriteLine(remoteFolder);
-            Console.ResetColor();
+            foreach (var remoteFile in remoteFiles) Console.WriteLine(remoteFile);
         }
 
-        // Handle the empty option
         if (shouldEmpty)
         {
-            if (skipConfirmation || AnsiConsole.Confirm("Empty the trash?", false))
-            {
-                DataAccessService.Instance.EmptyTrash();
-            }
+            if (!skipConfirmation && !AnsiConsole.Confirm("Permanently delete everything in the trash?", false)) return;
+            service.EmptyTrash();
+            Console.WriteLine("Emptied the trash.");
         }
     }
 }

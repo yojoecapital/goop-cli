@@ -11,20 +11,25 @@ public class RemoteFile : RemoteItem
     public long Size { get; set; }
     public bool Trashed { get; set; }
 
+    public bool IsLink => LinkFileHelper.IsGoogleDriveNativeFile(MimeType);
+
+    public string WebViewLink => $"https://drive.google.com/file/d/{Id}/view";
+
     public static RemoteFile CreateFrom(GoogleDriveFile googleDriveFile)
     {
-        string name = googleDriveFile.Name;
-        if (LinkFileHelper.IsGoogleDriveNativeFile(googleDriveFile.MimeType))
-        {
-            name += LinkFileHelper.GetLinkFileExtension();
-        }
+        var remoteName = googleDriveFile.Name;
+        var localName = LinkFileHelper.IsGoogleDriveNativeFile(googleDriveFile.MimeType)
+            ? remoteName + LinkFileHelper.GetLinkFileExtension()
+            : remoteName;
         return new()
         {
             Id = googleDriveFile.Id,
-            Name = name,
+            Name = localName,
+            RemoteName = remoteName,
             MimeType = googleDriveFile.MimeType,
-            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset.Value.ToUnixTimeMilliseconds(),
-            Size = googleDriveFile.Size.Value,
+            ModifiedTime = googleDriveFile.ModifiedTimeDateTimeOffset?.ToUnixTimeMilliseconds() ?? 0,
+            Size = googleDriveFile.Size ?? 0,
+            Trashed = googleDriveFile.Trashed ?? false,
             FolderId = googleDriveFile.Parents?.FirstOrDefault()
         };
     }
