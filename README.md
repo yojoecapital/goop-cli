@@ -27,10 +27,10 @@ Releases are published for both **x86-64** and **ARM64** Linux. Pick the asset t
 
 ```bash
 # x86-64
-curl -L -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop-linux-x64 && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
+curl -fL -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop-linux-x64 && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
 
 # ARM64 (Raspberry Pi, Ampere, ARM servers)
-curl -L -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop-linux-arm64 && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
+curl -fL -o /tmp/goop https://github.com/yojoecapital/goop-cli/releases/latest/download/goop-linux-arm64 && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
 ```
 
 To detect your architecture automatically:
@@ -39,10 +39,16 @@ To detect your architecture automatically:
 case "$(uname -m)" in
   x86_64)  asset=goop-linux-x64 ;;
   aarch64) asset=goop-linux-arm64 ;;
-  *) echo "unsupported architecture: $(uname -m)"; exit 1 ;;
+  *)       asset="" ;;
 esac
-curl -L -o /tmp/goop "https://github.com/yojoecapital/goop-cli/releases/latest/download/$asset" && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
+if [ -z "$asset" ]; then
+  echo "unsupported architecture: $(uname -m)"
+else
+  curl -fL -o /tmp/goop "https://github.com/yojoecapital/goop-cli/releases/latest/download/$asset" && chmod 755 /tmp/goop && sudo mv /tmp/goop /usr/local/bin/goop
+fi
 ```
+
+> Before 3.2.0 the release published a single asset named `goop`. It is now published per architecture, so older install commands pointing at `.../download/goop` will no longer resolve.
 
 ## Usage
 
