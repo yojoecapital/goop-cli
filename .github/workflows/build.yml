@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  build:
+    name: build ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [linux-x64, linux-arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish
+        run: >
+          dotnet publish GoogleDrivePushCli/GoogleDrivePushCli.csproj
+          -c Release
+          -r ${{ matrix.runtime }}
+          --self-contained true
+          -p:PublishSingleFile=true
+
+      - name: Smoke test
+        if: matrix.runtime == 'linux-x64'
+        run: |
+          set -euo pipefail
+          goop="GoogleDrivePushCli/bin/Release/net8.0/${{ matrix.runtime }}/publish/goop"
+          "$goop" version
+          "$goop" --help > /dev/null
+          "$goop" completions bash > /tmp/completions.bash
+          bash -n /tmp/completions.bash
+          "$goop" completions zsh > /dev/null
+          "$goop" completions fish > /dev/null

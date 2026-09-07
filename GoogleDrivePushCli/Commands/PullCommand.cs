@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
 using System.Linq;
-using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Json.SyncFolder;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Services;
 using GoogleDrivePushCli.Utilities;
-using Spectre.Console;
 
 namespace GoogleDrivePushCli.Commands;
 
@@ -65,7 +63,7 @@ public class PullCommand : Command
         int depth
     )
     {
-        int maxDepth = Math.Min(syncFolder.Depth, ApplicationConfiguration.Instance.MaxDepth);
+        int maxDepth = syncFolder.EffectiveDepth;
         if (depth >= maxDepth) return;
 
         var service = DataAccessService.Instance;
@@ -90,7 +88,7 @@ public class PullCommand : Command
             if (File.Exists(fileFullPath))
             {
                 var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType) || lastWriteTime >= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
+                if (remoteFile.IsLink || lastWriteTime >= remoteFile.ModifiedTime.ToUtcDateTime() || !allowedOperationTypes.Contains(OperationType.Update)) continue;
 
                 // File was edited
                 var operation = new Operation(
@@ -165,7 +163,7 @@ public class PullCommand : Command
                 // Folder was created
                 var operation = new Operation(
                     $"Local folder '{Path.Join(folderRelativePath, "**")}'.",
-                    progress => service.DownloadFolder(remoteFolder, folderFullPath, maxDepth - depth, progress)
+                    progress => service.DownloadFolder(remoteFolder, folderFullPath, maxDepth - depth, progress, syncFolder.CreateFilter())
                 );
                 createOperations.Add(operation);
                 continue;

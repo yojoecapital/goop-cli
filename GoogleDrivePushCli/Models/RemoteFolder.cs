@@ -17,6 +17,7 @@ public class RemoteFolder : RemoteItem
         {
             Id = googleDriveFolder.Id,
             Name = googleDriveFolder.Name,
+            RemoteName = googleDriveFolder.Name,
             FolderId = googleDriveFolder.Parents?.FirstOrDefault()
         };
     }

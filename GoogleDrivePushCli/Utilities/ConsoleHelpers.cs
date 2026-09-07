@@ -2,6 +2,7 @@ using System;
 using Spectre.Console;
 
 namespace GoogleDrivePushCli.Utilities;
+
 public static class ConsoleHelpers
 {
     public static bool Verbose { get; set; } = false;
@@ -19,12 +20,32 @@ public static class ConsoleHelpers
 
     public static void Clear(int row)
     {
-        Console.SetCursorPosition(0, row);
-        for (var i = row; i < Console.WindowHeight; i++)
+        if (Console.IsOutputRedirected) return;
+        try
         {
-            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(0, row);
+            for (var i = row; i < Console.WindowHeight; i++)
+            {
+                Console.Write(new string(' ', Console.WindowWidth));
+            }
+            Console.SetCursorPosition(0, row);
         }
-        Console.SetCursorPosition(0, row);
+        catch (Exception)
+        {
+            AnsiConsole.Clear();
+        }
+    }
+
+    public static void RestoreCursor()
+    {
+        if (Console.IsOutputRedirected) return;
+        try
+        {
+            Console.CursorVisible = true;
+        }
+        catch (Exception)
+        {
+        }
     }
 
     public static void Debug(object value)

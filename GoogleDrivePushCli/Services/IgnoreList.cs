@@ -16,44 +16,36 @@ public class IgnoreList
         var filePath = Path.Join(directory, Defaults.ignoreListFileName);
         if (File.Exists(filePath))
         {
-            foreach (var pattern in File.ReadLines(filePath).Where(line => !string.IsNullOrWhiteSpace(line)))
-            {
-                AddPattern(pattern);
-            }
+            AddPatterns(File.ReadLines(filePath).Select(line => line.Trim()).Where(IsPattern));
         }
         AddPatterns(autoIgnoreList);
     }
 
+    private static bool IsPattern(string line) => !string.IsNullOrWhiteSpace(line) && !line.StartsWith('#');
+
     public void AddAll(string[] patterns)
     {
-        AddPatterns(patterns);
+        if (patterns == null) return;
+        AddPatterns(patterns.Where(IsPattern));
     }
 
     private void AddPatterns(IEnumerable<string> patterns)
     {
-        foreach (var pattern in patterns)
-        {
-            AddPattern(pattern);
-        }
+        foreach (var pattern in patterns) AddPattern(pattern);
     }
 
     private void AddPattern(string pattern)
     {
-        if (pattern.StartsWith('!'))
-        {
-            // Negation pattern: exclude
-            var negatedPattern = pattern.Substring(1);
-            matcher.AddExclude(negatedPattern);
-        }
-        else
-        {
-            // Normal include pattern
-            matcher.AddInclude(pattern);
-        }
+        if (pattern.StartsWith('!')) matcher.AddExclude(Normalize(pattern[1..]));
+        else matcher.AddInclude(Normalize(pattern));
     }
+
+    private static string Normalize(string path) => path.Replace('\\', '/').TrimStart('/');
 
     public bool ShouldIgnore(string relativePath)
     {
-        return matcher.Match(relativePath).HasMatches;
+        var normalized = Normalize(relativePath);
+        if (normalized.Length == 0) return false;
+        return matcher.Match(normalized).HasMatches;
     }
 }

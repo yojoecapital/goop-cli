@@ -19,8 +19,8 @@ public class DataAccessRepository : DataAccessBase
 {
     private readonly DriveService service;
     private readonly UserCredential credential;
-    private static readonly string defaultFolderFields = "id, name, trashed, parents";
-    private static readonly string defaultFileFields = $"{defaultFolderFields}, mimeType, modifiedTime, size";
+    private static readonly string defaultFolderFields = "id, name, trashed, parents, mimeType";
+    private static readonly string defaultFileFields = $"{defaultFolderFields}, modifiedTime, size";
     private static readonly string[] driveScopes = [DriveService.Scope.Drive];
 
     public DataAccessRepository()
@@ -34,8 +34,6 @@ public class DataAccessRepository : DataAccessBase
             ApplicationConfiguration.Instance.TokenRefreshConfiguration.MaxTokenRetries,
             ApplicationConfiguration.Instance.TokenRefreshConfiguration.RetryDelay
         );
-
-        // Create the service
         try
         {
             service = new DriveService(new BaseClientService.Initializer()
@@ -55,8 +53,6 @@ public class DataAccessRepository : DataAccessBase
     {
         ConsoleHelpers.Info("Getting user credentials...");
         UserCredential credential;
-
-        // Get permission and make token
         try
         {
             using var stream = new FileStream(Defaults.credentialsPath, FileMode.Open, FileAccess.Read);
@@ -80,8 +76,6 @@ public class DataAccessRepository : DataAccessBase
         {
             throw new Exception("Failed initialize Google Drive service");
         }
-
-        // Try to refresh the token
         bool result = true;
         try
         {
@@ -96,20 +90,17 @@ public class DataAccessRepository : DataAccessBase
             throw new Exception("Failed refresh token");
         }
         if (result) ConsoleHelpers.Info("Token accepted.");
-        else throw new Exception();
-
-        // Return credential
+        else throw new Exception("Failed to refresh token");
         return credential;
     }
 
-    public override string ToString()
+    public string GetAccountEmailAddress()
     {
         try
         {
             var request = service.About.Get();
             request.Fields = "user";
-            var about = request.Execute();
-            return $"Established drive service for '{about.User.EmailAddress}'.";
+            return request.Execute().User.EmailAddress;
         }
         catch
         {
@@ -117,23 +108,26 @@ public class DataAccessRepository : DataAccessBase
         }
     }
 
+    public override string ToString() => $"Established drive service for '{GetAccountEmailAddress()}'.";
+
+    private static void ReportUploadProgress(long totalSize, IProgress<double> progressReport, long bytesSent)
+    {
+        progressReport.Report(totalSize <= 0 ? 1 : Math.Clamp(bytesSent / (double)totalSize, 0, 1));
+    }
+
     public override RemoteFile UpdateRemoteFile(string remoteFileId, string localFilePath, IProgress<double> progressReport)
     {
-        var body = service.Files.Get(remoteFileId).Execute();
-        body.Id = null;
-        body.Kind = null;
-        body.Parents = null;
+        var body = new GoogleDriveFile();
         using var stream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
         var totalSize = stream.Length;
         var request = service.Files.Update(body, remoteFileId, stream, "application/octet-stream");
         request.Fields = defaultFileFields;
-        request.ProgressChanged += progress =>
-        {
-            var percentage = progress.BytesSent / (double)totalSize;
-            progressReport.Report(percentage);
-        };
+        request.ProgressChanged += progress => ReportUploadProgress(totalSize, progressReport, progress.BytesSent);
         var progress = request.Upload();
-        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}'");
+        if (progress.Status == UploadStatus.Failed)
+        {
+            throw new Exception($"Failed to update remote file ({remoteFileId}) with content from '{localFilePath}': {progress.Exception?.Message}");
+        }
         ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been updated successfully using '{localFilePath}'.");
         var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
         File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime.ToUtcDateTime());
@@ -151,13 +145,12 @@ public class DataAccessRepository : DataAccessBase
         var totalSize = stream.Length;
         var request = service.Files.Create(body, stream, "application/octet-stream");
         request.Fields = defaultFileFields;
-        request.ProgressChanged += progress =>
-        {
-            var percentage = progress.BytesSent / (double)totalSize;
-            progressReport.Report(percentage);
-        };
+        request.ProgressChanged += progress => ReportUploadProgress(totalSize, progressReport, progress.BytesSent);
         var progress = request.Upload();
-        if (progress.Status == UploadStatus.Failed) throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId})");
+        if (progress.Status == UploadStatus.Failed)
+        {
+            throw new Exception($"Failed to upload '{localFilePath}' into remote folder ({remoteFolderId}): {progress.Exception?.Message}");
+        }
         ConsoleHelpers.Info($"File '{localFilePath}' has been uploaded successfully into remote file ({request.ResponseBody.Id}).");
         var remoteFile = RemoteFile.CreateFrom(request.ResponseBody);
         File.SetLastWriteTimeUtc(localFilePath, remoteFile.ModifiedTime.ToUtcDateTime());
@@ -180,46 +173,47 @@ public class DataAccessRepository : DataAccessBase
             ConsoleHelpers.Info($"Remote folder '{folderName}' ({googleDriveFolder.Id}) has been created successfully.");
             return RemoteFolder.CreateFrom(googleDriveFolder);
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to create new folder '{folderName}' in remote folder ({parentRemoteFolderId})");
+            throw new Exception($"Failed to create new folder '{folderName}' in remote folder ({parentRemoteFolderId}): {exception.Message}");
         }
     }
 
     public override void DownloadFile(RemoteFile remoteFile, string path, IProgress<double> progressReport)
     {
-        if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType))
+        if (remoteFile.IsLink)
         {
-            LinkFileHelper.CreateLinkFile(remoteFile.Name, $"https://drive.google.com/file/d/{remoteFile.Id}/view", path);
+            LinkFileHelper.CreateLinkFile(remoteFile.EffectiveRemoteName, remoteFile.WebViewLink, path);
             progressReport.Report(1);
             return;
         }
         try
         {
-            using var stream = new FileStream(path, FileMode.Create);
-            var totalSize = remoteFile.Size;
-            var request = service.Files.Get(remoteFile.Id);
-            request.Fields = defaultFileFields;
-            request.MediaDownloader.ProgressChanged += progress =>
+            using (var stream = new FileStream(path, FileMode.Create))
             {
-                var percentage = progress.BytesDownloaded / (double)totalSize;
-                progressReport.Report(percentage);
-            };
-            request.Download(stream);
-            var googleDriveFile = request.Execute();
+                var totalSize = remoteFile.Size;
+                var request = service.Files.Get(remoteFile.Id);
+                request.MediaDownloader.ProgressChanged += progress =>
+                {
+                    progressReport.Report(totalSize <= 0 ? 1 : Math.Clamp(progress.BytesDownloaded / (double)totalSize, 0, 1));
+                };
+                var download = request.DownloadWithStatus(stream);
+                if (download.Status == DownloadStatus.Failed)
+                {
+                    throw new Exception(download.Exception?.Message ?? "the download did not complete");
+                }
+            }
+            progressReport.Report(1);
+            File.SetLastWriteTimeUtc(path, remoteFile.ModifiedTime.ToUtcDateTime());
             ConsoleHelpers.Info($"Remote file ({remoteFile.Id}) has been successfully downloaded to '{path}'.");
         }
-        catch (IOException)
+        catch (IOException exception)
         {
-            throw new Exception($"Failed to save downloaded remote file ({remoteFile.Id}) due to an IO error");
+            throw new Exception($"Failed to save downloaded remote file ({remoteFile.Id}) due to an IO error: {exception.Message}");
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to download remote file ({remoteFile.Id}) to '{path}'");
-        }
-        finally
-        {
-            File.SetLastWriteTimeUtc(path, remoteFile.ModifiedTime.ToUtcDateTime());
+            throw new Exception($"Failed to download remote file ({remoteFile.Id}) to '{path}': {exception.Message}");
         }
     }
 
@@ -227,17 +221,13 @@ public class DataAccessRepository : DataAccessBase
     {
         try
         {
-            var body = new GoogleDriveFile
-            {
-                Trashed = true
-            };
-            var request = service.Files.Update(body, remoteItemId);
+            var request = service.Files.Update(new GoogleDriveFile { Trashed = true }, remoteItemId);
             request.Execute();
             ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been trashed successfully.");
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to trash remote item ({remoteItemId})");
+            throw new Exception($"Failed to trash remote item ({remoteItemId}): {exception.Message}");
         }
     }
 
@@ -245,20 +235,15 @@ public class DataAccessRepository : DataAccessBase
     {
         try
         {
-            var body = new GoogleDriveFile
-            {
-                Trashed = false
-            };
-            var request = service.Files.Update(body, remoteItemId);
+            var request = service.Files.Update(new GoogleDriveFile { Trashed = false }, remoteItemId);
             request.Fields = defaultFileFields;
             var googleDriveItem = request.Execute();
-            ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been trashed successfully.");
-            if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
-            else return RemoteFile.CreateFrom(googleDriveItem);
+            ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been restored from the trash successfully.");
+            return CreateRemoteItemFrom(googleDriveItem);
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to trash remote item ({remoteItemId})");
+            throw new Exception($"Failed to restore remote item ({remoteItemId}) from the trash: {exception.Message}");
         }
     }
 
@@ -266,68 +251,121 @@ public class DataAccessRepository : DataAccessBase
     {
         try
         {
+            var currentParents = service.Files.Get(remoteItemId);
+            currentParents.Fields = "parents";
+            var existingParents = currentParents.Execute().Parents;
             var request = service.Files.Update(null, remoteItemId);
             request.AddParents = parentRemoteFolderId;
+            if (existingParents != null && existingParents.Count > 0)
+            {
+                request.RemoveParents = string.Join(',', existingParents);
+            }
             request.Fields = defaultFileFields;
             var googleDriveItem = request.Execute();
             ConsoleHelpers.Info($"Remote item ({remoteItemId}) moved into remote folder ({parentRemoteFolderId}).");
-            if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
-            else return RemoteFile.CreateFrom(googleDriveItem);
+            return CreateRemoteItemFrom(googleDriveItem);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Console.WriteLine(ex);
-            throw new Exception($"Failed to move  remote item ({remoteItemId}) into remote folder ({parentRemoteFolderId})");
+            throw new Exception($"Failed to move remote item ({remoteItemId}) into remote folder ({parentRemoteFolderId}): {exception.Message}");
         }
+    }
+
+    public override RemoteItem RenameRemoteItem(string remoteItemId, string name)
+    {
+        try
+        {
+            var request = service.Files.Update(new GoogleDriveFile { Name = name }, remoteItemId);
+            request.Fields = defaultFileFields;
+            var googleDriveItem = request.Execute();
+            ConsoleHelpers.Info($"Remote item ({remoteItemId}) has been renamed to '{name}'.");
+            return CreateRemoteItemFrom(googleDriveItem);
+        }
+        catch (Exception exception)
+        {
+            throw new Exception($"Failed to rename remote item ({remoteItemId}) to '{name}': {exception.Message}");
+        }
+    }
+
+    public override RemoteFile CopyRemoteFile(string remoteFileId, string parentRemoteFolderId, string name)
+    {
+        try
+        {
+            var body = new GoogleDriveFile { Parents = [parentRemoteFolderId] };
+            if (!string.IsNullOrEmpty(name)) body.Name = name;
+            var request = service.Files.Copy(body, remoteFileId);
+            request.Fields = defaultFileFields;
+            var googleDriveFile = request.Execute();
+            ConsoleHelpers.Info($"Remote file ({remoteFileId}) has been copied to ({googleDriveFile.Id}).");
+            return RemoteFile.CreateFrom(googleDriveFile);
+        }
+        catch (Exception exception)
+        {
+            throw new Exception($"Failed to copy remote file ({remoteFileId}) into remote folder ({parentRemoteFolderId}): {exception.Message}");
+        }
+    }
+
+    private static RemoteItem CreateRemoteItemFrom(GoogleDriveFile googleDriveItem)
+    {
+        if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
+        return RemoteFile.CreateFrom(googleDriveItem);
+    }
+
+    private void ListInto(string query, List<RemoteFile> remoteFiles, List<RemoteFolder> remoteFolders)
+    {
+        string pageToken = null;
+        do
+        {
+            var listRequest = service.Files.List();
+            listRequest.Q = query;
+            listRequest.Fields = $"nextPageToken, files({defaultFileFields})";
+            listRequest.PageSize = Defaults.pageSize;
+            listRequest.PageToken = pageToken;
+            var result = listRequest.Execute();
+            if (result.Files != null)
+            {
+                foreach (var googleDriveItem in result.Files)
+                {
+                    if (googleDriveItem.MimeType == RemoteFolder.MimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
+                    else remoteFiles.Add(RemoteFile.CreateFrom(googleDriveItem));
+                }
+            }
+            pageToken = result.NextPageToken;
+        }
+        while (!string.IsNullOrEmpty(pageToken));
     }
 
     public override RemoteFolder GetRemoteFolder(string remoteFolderId, out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
-        var remoteitem = GetRemoteItem(remoteFolderId);
-        if (remoteitem is not RemoteFolder remoteFolder)
+        var remoteItem = GetRemoteItem(remoteFolderId);
+        if (remoteItem is not RemoteFolder remoteFolder)
         {
             throw new Exception($"Remote item ({remoteFolderId}) is not a folder");
         }
+        remoteFiles = [];
+        remoteFolders = [];
         try
         {
-            var listRequest = service.Files.List();
-            listRequest.Q = $"'{remoteFolderId}' in parents and trashed = false";
-            listRequest.Fields = $"files({defaultFileFields})";
-            var result = listRequest.Execute();
-            remoteFiles = [];
-            remoteFolders = [];
-            foreach (var googleDriveItem in result.Files)
-            {
-                if (googleDriveItem.MimeType == RemoteFolder.MimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
-                else remoteFiles.Add(RemoteFile.CreateFrom(googleDriveItem));
-            }
-            return remoteFolder;
+            ListInto($"'{remoteFolderId}' in parents and trashed = false", remoteFiles, remoteFolders);
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to fetch items for folder with ID ({remoteFolderId})");
+            throw new Exception($"Failed to fetch items for folder with ID ({remoteFolderId}): {exception.Message}");
         }
+        return remoteFolder;
     }
 
     public override void GetRemoteItemsInTrash(out List<RemoteFile> remoteFiles, out List<RemoteFolder> remoteFolders)
     {
+        remoteFiles = [];
+        remoteFolders = [];
         try
         {
-            var listRequest = service.Files.List();
-            listRequest.Q = $"trashed = true";
-            listRequest.Fields = $"files({defaultFileFields})";
-            var result = listRequest.Execute();
-            remoteFiles = [];
-            remoteFolders = [];
-            foreach (var googleDriveItem in result.Files)
-            {
-                if (googleDriveItem.MimeType == RemoteFolder.MimeType) remoteFolders.Add(RemoteFolder.CreateFrom(googleDriveItem));
-                else remoteFiles.Add(RemoteFile.CreateFrom(googleDriveItem));
-            }
+            ListInto("trashed = true", remoteFiles, remoteFolders);
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to fetch items in trash");
+            throw new Exception($"Failed to fetch items in trash: {exception.Message}");
         }
     }
 
@@ -335,12 +373,12 @@ public class DataAccessRepository : DataAccessBase
     {
         try
         {
-            var emptyTrashRequest = service.Files.EmptyTrash();
-            emptyTrashRequest.Execute();
+            service.Files.EmptyTrash().Execute();
+            ConsoleHelpers.Info("The trash has been emptied.");
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to empty trash");
+            throw new Exception($"Failed to empty trash: {exception.Message}");
         }
     }
 
@@ -353,13 +391,12 @@ public class DataAccessRepository : DataAccessBase
             request.Fields = defaultFileFields;
             googleDriveItem = request.Execute();
         }
-        catch
+        catch (Exception exception)
         {
-            throw new Exception($"Failed to fetch remote item ({remoteItemId})");
+            throw new Exception($"Failed to fetch remote item ({remoteItemId}): {exception.Message}");
         }
-        if (googleDriveItem.Trashed.Value) throw new Exception($"Remote item ({remoteItemId}) is trashed");
-        if (googleDriveItem.MimeType == RemoteFolder.MimeType) return RemoteFolder.CreateFrom(googleDriveItem);
-        else return RemoteFile.CreateFrom(googleDriveItem);
+        if (googleDriveItem.Trashed == true) throw new Exception($"Remote item ({remoteItemId}) is trashed");
+        return CreateRemoteItemFrom(googleDriveItem);
     }
 
     public RemoteFolder GetRootFolder() => (RemoteFolder)GetRemoteItem(Defaults.rootIdAlias);

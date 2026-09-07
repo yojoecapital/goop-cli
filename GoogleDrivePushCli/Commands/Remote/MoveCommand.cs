@@ -8,59 +8,56 @@ namespace GoogleDrivePushCli.Commands.Remote;
 
 public class MoveCommand : Command
 {
-    public MoveCommand() : base("move", "Reparent an item.")
+    public MoveCommand() : base("move", "Move or rename a remote item.")
     {
         AddAlias("mv");
+        AddAlias("rename");
         var remoteFolderPathOption = new Option<string>("--into", "The path of the remote folder to move the item into.");
+        var nameOption = new Option<string>(["--name", "-n"], "The new name to give the item.");
         AddArgument(DefaultParameters.pathArgument);
         AddOption(remoteFolderPathOption);
+        AddOption(nameOption);
         AddOption(DefaultParameters.interactiveOption);
         this.SetHandler(
             Handle,
             DefaultParameters.pathArgument,
             remoteFolderPathOption,
+            nameOption,
             DefaultParameters.interactiveOption
         );
     }
 
-    private static void Handle(string path, string folderPath, bool isInteractive)
+    private static void Handle(string path, string folderPath, string name, bool isInteractive)
     {
-        RemoteItem remoteItem, remoteFolder;
-        string defaultPath = "/";
-        if (string.IsNullOrEmpty(path) || isInteractive)
+        var isRenameOnly = !string.IsNullOrEmpty(name) && string.IsNullOrEmpty(folderPath);
+        var remoteItem = RemotePathResolver.ResolveItem(
+            path,
+            isInteractive,
+            isRenameOnly ? "Select a remote item to rename." : "Select a remote item to move.",
+            isRenameOnly ? "Rename this folder" : "Move this folder"
+        );
+        if (remoteItem == null) return;
+        if (remoteItem.Id == DataAccessService.Instance.RootId) throw new Exception("Cannot move or rename the root folder");
+
+        var service = DataAccessService.Instance;
+        var result = remoteItem;
+        if (!isRenameOnly)
         {
-            if (string.IsNullOrEmpty(path)) path = defaultPath;
-            var history = NavigationHelper.Navigate(path, new()
-            {
-                selectThisText = "Move this folder"
-            });
-            if (history == null) return;
-            remoteItem = history.Peek();
-            if (history.Peek() is not RemoteFolder) history.Pop();
-            defaultPath = NavigationHelper.GetPathFromStack(history);
-        }
-        else remoteItem = DataAccessService.Instance.GetRemoteItemsFromPath(path).Peek();
-        if (remoteItem.Id == DataAccessService.Instance.RootId) throw new Exception("Cannot move root folder");
-        if (string.IsNullOrEmpty(folderPath) || isInteractive)
-        {
-            if (string.IsNullOrEmpty(folderPath)) folderPath = defaultPath;
-            remoteFolder = NavigationHelper.Navigate(
+            var remoteFolder = RemotePathResolver.ResolveFolder(
                 folderPath,
-                new()
-                {
-                    prompt = $"Select an folder to move '{remoteItem.Name}' into:",
-                    selectThisText = "Move here",
-                    onlyDisplayFolders = true
-                }
-            )?.Peek();
+                isInteractive,
+                $"Select a folder to move '{remoteItem.Name}' into:",
+                "Move here"
+            );
             if (remoteFolder == null) return;
+            if (remoteFolder.Id == remoteItem.Id) throw new Exception("Cannot move a folder into itself");
+            result = service.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
+            Console.WriteLine($"Moved '{remoteItem.Name}' into '{remoteFolder.Name}'.");
         }
-        else remoteFolder = DataAccessService.Instance.GetRemoteItemsFromPath(folderPath).Peek();
-        if (remoteFolder is not RemoteFolder)
+        if (!string.IsNullOrEmpty(name))
         {
-            throw new Exception($"Folder path argument must be a remote folder. Remote item '{remoteFolder.Name}' ({remoteFolder.Id}) is not a folder");
+            result = service.RenameRemoteItem(result.Id, name);
+            Console.WriteLine($"Renamed '{remoteItem.Name}' to '{result.Name}'.");
         }
-        DataAccessService.Instance.MoveRemoteItem(remoteItem.Id, remoteFolder.Id);
-        Console.WriteLine($"Moved '{remoteItem.Name}' into '{remoteFolder.Name}'.");
     }
 }

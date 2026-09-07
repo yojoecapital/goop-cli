@@ -1,0 +1,111 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to publish the release under
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  build:
+    name: build ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: linux-x64
+            asset: goop-linux-x64
+          - runtime: linux-arm64
+            asset: goop-linux-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore GoogleDrivePushCli/GoogleDrivePushCli.csproj -r ${{ matrix.runtime }}
+
+      - name: Publish
+        run: >
+          dotnet publish GoogleDrivePushCli/GoogleDrivePushCli.csproj
+          -c Release
+          -r ${{ matrix.runtime }}
+          --self-contained true
+          --no-restore
+          -p:PublishSingleFile=true
+
+      - name: Stage artifact
+        run: |
+          set -euo pipefail
+          published="GoogleDrivePushCli/bin/Release/net8.0/${{ matrix.runtime }}/publish/goop"
+          test -f "$published"
+          mkdir -p artifacts
+          cp "$published" "artifacts/${{ matrix.asset }}"
+          chmod 755 "artifacts/${{ matrix.asset }}"
+          file "artifacts/${{ matrix.asset }}"
+
+      - name: Verify artifact
+        if: matrix.runtime == 'linux-x64'
+        run: |
+          set -euo pipefail
+          version="$(./artifacts/${{ matrix.asset }} version)"
+          echo "goop reported version $version"
+          ./artifacts/${{ matrix.asset }} --help > /dev/null
+          ./artifacts/${{ matrix.asset }} completions bash > /tmp/completions.bash
+          bash -n /tmp/completions.bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: artifacts/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: tag
+        run: echo "value=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ls -la artifacts
+          notes_argument=(--generate-notes)
+          if [ -f GoogleDrivePushCli/RELEASE.md ]; then
+            notes_argument=(--notes-file GoogleDrivePushCli/RELEASE.md)
+          fi
+          gh release create "${{ steps.tag.outputs.value }}" \
+            artifacts/goop-linux-x64 \
+            artifacts/goop-linux-arm64 \
+            --title "${{ steps.tag.outputs.value }}" \
+            "${notes_argument[@]}"

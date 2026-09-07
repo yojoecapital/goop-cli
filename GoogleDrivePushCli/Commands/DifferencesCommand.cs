@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
 using System.Linq;
-using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Json.SyncFolder;
 using GoogleDrivePushCli.Models;
 using GoogleDrivePushCli.Services;
@@ -67,7 +66,7 @@ public class DifferencesCommand : Command
         int depth
     )
     {
-        int maxDepth = Math.Min(syncFolder.Depth, ApplicationConfiguration.Instance.MaxDepth);
+        int maxDepth = syncFolder.EffectiveDepth;
         if (depth >= maxDepth) return;
 
         var service = DataAccessService.Instance;
@@ -90,17 +89,13 @@ public class DifferencesCommand : Command
                 continue;
             }
 
-            // don't show the timestamps for link files
-            if (LinkFileHelper.IsGoogleDriveNativeFile(remoteFile.MimeType))
+            if (remoteFile.IsLink)
             {
-                var lastWriteTime = File.GetLastWriteTimeUtc(fileFullPath);
-                var difference = new FileDifference()
+                fileDifferences.Add(new FileDifference()
                 {
                     Path = fileRelativePath
-                };
-                fileDifferences.Add(difference);
+                });
                 continue;
-
             }
 
             if (File.Exists(fileFullPath))

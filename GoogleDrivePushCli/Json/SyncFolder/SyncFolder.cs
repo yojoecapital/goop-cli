@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using GoogleDrivePushCli.Json.Configuration;
 using GoogleDrivePushCli.Services;
-using GoogleDrivePushCli.Utilities;
 
 namespace GoogleDrivePushCli.Json.SyncFolder;
 
@@ -12,22 +11,43 @@ public class SyncFolder
 {
     [JsonPropertyName("folder_id")]
     public string FolderId { get; set; }
+
     [JsonPropertyName("depth")]
     public int Depth { get; set; }
+
     [JsonIgnore]
     public string LocalDirectory { get; private set; }
+
     [JsonIgnore]
     public IgnoreList IgnoreList { get; private set; }
+
+    [JsonIgnore]
+    public int EffectiveDepth => Math.Min(Depth, ApplicationConfiguration.Instance.MaxDepth);
+
+    public RelativePathFilter CreateFilter() => new(IgnoreList, LocalDirectory);
 
     public static SyncFolder Read(string workingDirectory)
     {
         var directory = FindRoot(workingDirectory) ??
-            throw new FileNotFoundException($"A '{Defaults.syncFolderFileName}' file does exist in {workingDirectory}");
+            throw new FileNotFoundException($"No '{Defaults.syncFolderFileName}' file exists in '{Path.GetFullPath(workingDirectory)}' or any of its parent directories");
         var syncFolderFilePath = Path.Join(directory, Defaults.syncFolderFileName);
-        var syncFolder = JsonSerializer.Deserialize(
-            File.ReadAllText(syncFolderFilePath),
-            SyncFolderJsonContext.Default.SyncFolder
-        );
+        SyncFolder syncFolder;
+        try
+        {
+            syncFolder = JsonSerializer.Deserialize(
+                File.ReadAllText(syncFolderFilePath),
+                SyncFolderJsonContext.Lenient.SyncFolder
+            );
+        }
+        catch (JsonException exception)
+        {
+            throw new Exception($"The sync folder file at '{syncFolderFilePath}' is not valid JSON: {exception.Message}");
+        }
+        if (syncFolder == null || string.IsNullOrEmpty(syncFolder.FolderId))
+        {
+            throw new Exception($"The sync folder file at '{syncFolderFilePath}' is missing a folder ID");
+        }
+        if (syncFolder.Depth <= 0) syncFolder.Depth = ApplicationConfiguration.Instance.DefaultDepth;
         syncFolder.LocalDirectory = directory;
         syncFolder.IgnoreList = new IgnoreList(directory);
         return syncFolder;
@@ -44,17 +64,11 @@ public class SyncFolder
 
     public static string FindRoot(string startDirectory)
     {
-        var maxDepth = ApplicationConfiguration.Instance.MaxDepth;
-        startDirectory = Path.GetFullPath(startDirectory);
-        string currentDirectory = startDirectory;
-        int depth = 0;
-        while (currentDirectory != null && depth <= maxDepth)
+        var currentDirectory = Path.GetFullPath(startDirectory);
+        var depth = 0;
+        while (currentDirectory != null && depth <= Defaults.maxRootSearchDepth)
         {
-            string filePath = Path.Join(currentDirectory, Defaults.syncFolderFileName);
-            if (File.Exists(filePath))
-            {
-                return currentDirectory;
-            }
+            if (File.Exists(Path.Join(currentDirectory, Defaults.syncFolderFileName))) return currentDirectory;
             currentDirectory = Directory.GetParent(currentDirectory)?.FullName;
             depth++;
         }

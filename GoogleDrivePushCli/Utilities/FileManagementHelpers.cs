@@ -1,26 +1,21 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.AccessControl;
 
 namespace GoogleDrivePushCli.Utilities;
 
 public static class FileManagementHelpers
 {
+    private static readonly UnixFileMode executableBits =
+        UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+
     public static int CountFilesAtDepth(string directoryPath, int depth, int currentDepth)
     {
-        if (currentDepth > depth) return 0;
-        var total = 0;
-        var files = Directory.GetFiles(directoryPath);
-        total += files.Length;
-        if (currentDepth < depth)
+        if (currentDepth >= depth) return 0;
+        var total = Directory.GetFiles(directoryPath).Length;
+        foreach (string subdirectory in Directory.GetDirectories(directoryPath))
         {
-            var subdirectories = Directory.GetDirectories(directoryPath);
-            foreach (string subdirectory in subdirectories)
-            {
-                total += CountFilesAtDepth(subdirectory, depth, currentDepth + 1);
-            }
+            total += CountFilesAtDepth(subdirectory, depth, currentDepth + 1);
         }
         return total;
     }
@@ -28,48 +23,32 @@ public static class FileManagementHelpers
     public static void CopyFileWithPermissions(string sourcePath, string destinationPath)
     {
         File.Copy(sourcePath, destinationPath, true);
+        CopyUnixFileMode(sourcePath, destinationPath);
+    }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    public static void CopyUnixFileMode(string sourcePath, string destinationPath)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+        try
         {
-            var sourceFileInfo = new FileInfo(sourcePath);
-            var destFileInfo = new FileInfo(destinationPath);
-            FileSecurity fileSecurity = sourceFileInfo.GetAccessControl();
-            destFileInfo.SetAccessControl(fileSecurity);
+            File.SetUnixFileMode(destinationPath, File.GetUnixFileMode(sourcePath));
         }
-        else
+        catch (Exception exception)
         {
-            string escapedSource = EscapeForShell(sourcePath);
-            string escapedDest = EscapeForShell(destinationPath);
-
-            string command = $"cp -p {escapedSource} {escapedDest}";
-
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "/bin/sh",
-                    Arguments = $"-c \"{command}\"",
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                }
-            };
-
-            process.Start();
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
-            {
-                string error = process.StandardError.ReadToEnd();
-                throw new Exception($"Failed to copy file permissions: {error}");
-            }
+            ConsoleHelpers.Info($"Failed to copy permissions to '{destinationPath}': {exception.Message}");
         }
     }
 
-    private static string EscapeForShell(string path)
+    public static void MakeExecutable(string filePath)
     {
-        if (string.IsNullOrEmpty(path)) return "''";
-        return "'" + path.Replace("'", "'\\''") + "'";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+        try
+        {
+            File.SetUnixFileMode(filePath, File.GetUnixFileMode(filePath) | executableBits);
+        }
+        catch (Exception exception)
+        {
+            ConsoleHelpers.Info($"Failed to make '{filePath}' executable: {exception.Message}");
+        }
     }
 }

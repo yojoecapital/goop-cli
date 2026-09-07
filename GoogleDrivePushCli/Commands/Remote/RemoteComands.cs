@@ -10,7 +10,10 @@ public class RemoteCommands : Command
         AddCommand(new ListCommand());
         AddCommand(new MakeFolderCommand());
         AddCommand(new MoveCommand());
+        AddCommand(new CopyCommand());
         AddCommand(new TrashCommand());
+        AddCommand(new RestoreCommand());
         AddCommand(new DownloadCommand());
+        AddCommand(new UploadCommand());
     }
 }
